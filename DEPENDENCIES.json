@@ -1,0 +1,10 @@
+{
+  "Quest64Syms": "46254e8f90d5e3779f575c7c99565bf159b709a2",
+  "lib/N64ModernRuntime": "212c0cd304862b961f0bb0a9a3ed1ca045ed8358",
+  "lib/RmlUi": "7a06f27db04fe5d13a5dacc19b2b4544673a4eca",
+  "lib/freetype-windows-binaries": "d6fb49d11a9d0011bf4ecfe7e570beaaa189838a",
+  "lib/lunasvg": "4166d0cccfc059b39d5ecfc372524375e59448f9",
+  "lib/rt64": "aa047b8158034552466175b8e8554988caa18976",
+  "lib/sf64decomp": "b870a09cf33e882463dfecedaf917a9505b79cec",
+  "lib/sse2neon": "706d3b58025364c2371cafcf9b16e32ff7e630ed"
+}

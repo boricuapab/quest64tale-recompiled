@@ -1,0 +1,32 @@
+[
+  {
+    "path": "LatoLatin-Regular.ttf",
+    "url": "https://raw.githubusercontent.com/Rainchus/Quest64-Recomp/ea94271a3ed1101628bfdac95e9966b31bd25f39/assets/LatoLatin-Regular.ttf",
+    "sha256": "d785334ac4e7810f571def986bbad41161f68ac385db8813f798bf04d71478e1"
+  },
+  {
+    "path": "LatoLatin-Italic.ttf",
+    "url": "https://raw.githubusercontent.com/Rainchus/Quest64-Recomp/ea94271a3ed1101628bfdac95e9966b31bd25f39/assets/LatoLatin-Italic.ttf",
+    "sha256": "1121daa4b0f0510074f54b046b2a25016614cca419974b992e2b8a2b2231f5da"
+  },
+  {
+    "path": "LatoLatin-Bold.ttf",
+    "url": "https://raw.githubusercontent.com/Rainchus/Quest64-Recomp/ea94271a3ed1101628bfdac95e9966b31bd25f39/assets/LatoLatin-Bold.ttf",
+    "sha256": "74dc638cf436cce77a0217a2a55ce7906a4cc9e4c595c6f1dcd9dd858078c1b6"
+  },
+  {
+    "path": "LatoLatin-BoldItalic.ttf",
+    "url": "https://raw.githubusercontent.com/Rainchus/Quest64-Recomp/ea94271a3ed1101628bfdac95e9966b31bd25f39/assets/LatoLatin-BoldItalic.ttf",
+    "sha256": "116bd3f939070d9df8c73acb76faa8f6b582bcce3c391eb6b3695f40e5ae404a"
+  },
+  {
+    "path": "NotoEmoji-Regular.ttf",
+    "url": "https://raw.githubusercontent.com/Rainchus/Quest64-Recomp/ea94271a3ed1101628bfdac95e9966b31bd25f39/assets/NotoEmoji-Regular.ttf",
+    "sha256": "415dc6290378574135b64c808dc640c1df7531973290c4970c51fdeb849cb0c5"
+  },
+  {
+    "path": "promptfont/promptfont.ttf",
+    "url": "https://raw.githubusercontent.com/Rainchus/Quest64-Recomp/ea94271a3ed1101628bfdac95e9966b31bd25f39/assets/promptfont/promptfont.ttf",
+    "sha256": "7206e62fdb7e07fdf137e52464d7fa862f2f8dc79931fa6500e6ceb8ed1f06b9"
+  }
+]
