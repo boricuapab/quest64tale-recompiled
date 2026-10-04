@@ -3,6 +3,8 @@ extern "C" void qs64_extra_set(const char*,bool);
 extern "C" void qs64_extra_tick(uint8_t*);
 extern "C" void qs64_extra_reset();
 extern "C" void qs64_extra_finish(uint8_t*);
+extern "C" void qs64_progression_set(const char*,bool);
+extern "C" void qs64_progression_reset();
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -16,7 +18,7 @@ extern "C" void qs64_extra_finish(uint8_t*);
 
 namespace {
 constexpr uint32_t Player=0x8007BA80,GameMode=0x8007B2E0,GameState=0x8007B2E4;
-struct Destination {int map,submap,entrance;float x,z,heading;};
+struct Destination {int map,submap,entrance;float x,z,heading;uint16_t flags,door;};
 struct BossDestination {const char* name;int map,submap;uint8_t mask;};
 #include "quest64_destinations.inc"
 std::atomic<bool> max_stats=false,all_spells=false,debug_menu=false;
@@ -24,7 +26,7 @@ std::atomic<int> status=0;
 std::mutex request_mutex;
 struct Warp {Destination target;int boss=-1;};
 std::optional<Warp> pending,transition;
-int pending_boss=-1;
+std::optional<Destination> arriving;
 bool stats_applied=false,elements_applied=false;
 std::array<uint16_t,4> old_stats;
 std::array<uint8_t,4> old_levels,old_elements;
@@ -79,6 +81,7 @@ const Destination* destination(int map,int submap,int entrance) {
 #ifndef QUEST64_MOD_TEST
 void set_mod(const recomp::mods::ModHandle& mod,bool enabled) {
     qs64_extra_set(mod.manifest.mod_id.c_str(),enabled);
+    qs64_progression_set(mod.manifest.mod_id.c_str(),enabled);
     if(mod.manifest.mod_id=="qs64_max_stats")max_stats=enabled;
     else if(mod.manifest.mod_id=="qs64_all_spells")all_spells=enabled;
     else if(mod.manifest.mod_id=="qs64_debug_menu") {
@@ -135,7 +138,8 @@ std::string quest64::debug_status() {
 }
 extern "C" void qs64_mod_reset(uint8_t*) {
     qs64_extra_reset();
-    stats_applied=false;elements_applied=false;pending_boss=-1;transition.reset();
+    qs64_progression_reset();
+    stats_applied=false;elements_applied=false;arriving.reset();transition.reset();
     std::lock_guard lock(request_mutex);pending.reset();status=0;
 }
 extern "C" void qs64_mod_tick(uint8_t* ram) {
@@ -160,23 +164,27 @@ extern "C" void qs64_mod_finish_warp(uint8_t* ram) {
     write<int32_t>(ram,0x80084EF8,-1);write<int32_t>(ram,0x80084F04,-1);
     write<int32_t>(ram,0x80085370,d.entrance);
     write<float>(ram,0x8007BA40,d.x);write<float>(ram,0x8007BA44,d.z);write<float>(ram,0x8007BA48,d.heading);
+    // Arrival flags belong to the selected entrance, not the door Brian left.
+    // The native initializer uses them to walk him into the room and snap him
+    // onto its collision floor (including stairs and special entrances).
+    write<uint32_t>(ram,0x8007BA4C,d.flags);
+    write<uint32_t>(ram,0x8007BA50,d.door);
+    arriving=d;
     write<uint16_t>(ram,Player+0x3E,0);
     write<uint16_t>(ram,0x8007B2E8,0);
     write<uint32_t>(ram,GameState,0x140);
     write<uint16_t>(ram,0x8008C592,read<uint16_t>(ram,0x8008C592)&0x8000);
     if(warp.boss>=0) {
         write<uint8_t>(ram,0x8007D19C,read<uint8_t>(ram,0x8007D19C)&~bosses[warp.boss].mask);
-        pending_boss=warp.boss;
     }
     status=2;
 }
-extern "C" void qs64_mod_player_tick(uint8_t* ram) {
-    if(pending_boss<0 || read<uint16_t>(ram,GameMode)!=1)return;
-    if(read<uint32_t>(ram,0x8007D1A0)!=uint32_t(pending_boss+1))return;
-    // Place Brian next to the loaded boss; the original proximity routine
-    // starts its dialogue, arena, combat, rewards and story progression.
-    for(int i=0;i<3;i++)write<float>(ram,0x8007BACC+i*4,read<float>(ram,0x8007D1CC+i*4)+(i==0 ? 0.01f:0.0f));
-    pending_boss=-1;
+extern "C" void qs64_mod_prepare_spawn(uint8_t* ram) {
+    if(!arriving)return;
+    const auto d=*arriving;arriving.reset();
+    // Apply after destination loading and before native player initialization.
+    write<float>(ram,0x8007BA40,d.x);write<float>(ram,0x8007BA44,d.z);write<float>(ram,0x8007BA48,d.heading);
+    write<uint32_t>(ram,0x8007BA4C,d.flags);write<uint32_t>(ram,0x8007BA50,d.door);
 }
 #ifdef QUEST64_MOD_TEST
 extern "C" __declspec(dllexport) void qs64_test_enable(int stats,int spells,int debug){max_stats=stats!=0;all_spells=spells!=0;debug_menu=debug!=0;}

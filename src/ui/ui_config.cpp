@@ -16,6 +16,7 @@ ultramodern::renderer::GraphicsConfig new_options;
 Rml::DataModelHandle nav_help_model_handle;
 Rml::DataModelHandle general_model_handle;
 Rml::DataModelHandle controls_model_handle;
+int selected_binding_profile=0;
 Rml::DataModelHandle graphics_model_handle;
 Rml::DataModelHandle sound_options_model_handle;
 
@@ -447,7 +448,7 @@ struct DebugContext {
     Rml::DataModelHandle model_handle;
     std::vector<std::string> area_names;
     std::vector<std::string> scene_names;
-    std::vector<std::string> entrance_names; 
+    std::vector<std::string> entrance_names;
     int area_index = 0;
     int scene_index = 0;
     int entrance_index = 0;
@@ -470,7 +471,7 @@ struct DebugContext {
         for (const auto& scene : zelda64::game_warps[area_index].scenes) {
             scene_names.emplace_back(scene.name);
         }
-        
+
         entrance_names = zelda64::game_warps[area_index].scenes[scene_index].entrances;
     }
 };
@@ -580,7 +581,7 @@ public:
                 controls_model_handle.DirtyVariable("input_device_is_keyboard");
                 controls_model_handle.DirtyVariable("inputs");
             });
-            
+
         recompui::register_event(listener, "area_index_changed",
             [](const std::string& param, Rml::Event& event) {
                 debug_context.area_index = event.GetParameter<int>("value", 0);
@@ -592,7 +593,7 @@ public:
                 debug_context.model_handle.DirtyVariable("scene_names");
                 debug_context.model_handle.DirtyVariable("entrance_names");
             });
-            
+
         recompui::register_event(listener, "scene_index_changed",
             [](const std::string& param, Rml::Event& event) {
                 debug_context.scene_index = event.GetParameter<int>("value", 0);
@@ -713,7 +714,7 @@ public:
                 }
                 out = "";
             });
-        
+
         constructor.BindFunc("gfx_help__apply", [](Rml::Variant& out) {
             if (cont_active) {
                 out = \
@@ -745,6 +746,11 @@ public:
         }
 
         constructor.BindFunc("input_count", [](Rml::Variant& out) { out = static_cast<uint64_t>(recomp::get_num_inputs()); } );
+        constructor.Bind("binding_profile", &selected_binding_profile);
+        constructor.BindEventCallback("change_binding_profile",[](Rml::DataModelHandle model,Rml::Event&,const Rml::VariantList&){
+            recomp::set_binding_profile(selected_binding_profile);
+            model.DirtyVariable("inputs");
+        });
         constructor.BindFunc("input_device_is_keyboard", [](Rml::Variant& out) { out = cur_device == recomp::InputDevice::Keyboard; } );
 
         constructor.RegisterTransformFunc("get_input_name", [](const Rml::VariantList& inputs) {
@@ -946,7 +952,7 @@ public:
         }
 
         bind_config_list_events(constructor);
-        
+
         constructor.Bind("rumble_strength", &control_options_context.rumble_strength);
         constructor.Bind("gyro_sensitivity", &control_options_context.gyro_sensitivity);
         constructor.Bind("mouse_sensitivity", &control_options_context.mouse_sensitivity);
@@ -960,7 +966,7 @@ public:
 
         general_model_handle = constructor.GetModelHandle();
     }
-    
+
     void make_sound_options_bindings(Rml::Context* context) {
         Rml::DataModelConstructor constructor = context->CreateDataModel("sound_options_model");
         if (!constructor) {
@@ -968,7 +974,7 @@ public:
         }
 
         bind_config_list_events(constructor);
-        
+
         sound_options_model_handle = constructor.GetModelHandle();
 
         bind_atomic(constructor, sound_options_model_handle, "main_volume", &sound_options_context.main_volume);
@@ -988,10 +994,10 @@ public:
 
         // Bind the debug mode enabled flag.
         constructor.Bind("debug_enabled", &debug_context.debug_enabled);
-        
+
         // Register the array type for string vectors.
         constructor.RegisterArray<std::vector<std::string>>();
-        
+
         // Bind the warp parameter indices
         constructor.Bind("area_index", &debug_context.area_index);
         constructor.Bind("scene_index", &debug_context.scene_index);
@@ -1043,7 +1049,7 @@ void recompui::update_supported_options() {
     msaa4x_supported = zelda64::renderer::RT64MaxMSAA() >= RT64::UserConfiguration::Antialiasing::MSAA4X;
     msaa8x_supported = zelda64::renderer::RT64MaxMSAA() >= RT64::UserConfiguration::Antialiasing::MSAA8X;
     sample_positions_supported = zelda64::renderer::RT64SamplePositionsSupported();
-    
+
     new_options = ultramodern::renderer::get_graphics_config();
 
     graphics_model_handle.DirtyAllVariables();

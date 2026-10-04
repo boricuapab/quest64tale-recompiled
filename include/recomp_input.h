@@ -18,26 +18,30 @@ namespace recomp {
     // First parameter is the enum name, second parameter is the bit field for the input (or 0 if there is no associated one), third is the readable name.
     // TODO refactor this to allow projects to rename these, or get rid of the readable name and leave that up to individual projects to map.
     #define DEFINE_N64_BUTTON_INPUTS() \
-        DEFINE_INPUT(A, 0x8000, "Laser") \
-        DEFINE_INPUT(B, 0x4000, "Smart Bomb") \
-        DEFINE_INPUT(Z, 0x2000, "Tilt Left") \
-        DEFINE_INPUT(R, 0x0010, "Tilt Right") \
-        DEFINE_INPUT(START, 0x1000, "Pause") \
-        DEFINE_INPUT(C_UP, 0x0008, "Camera") \
-        DEFINE_INPUT(C_LEFT, 0x0002, "Turbo") \
-        DEFINE_INPUT(C_DOWN, 0x0004, "Brake") \
-        DEFINE_INPUT(C_RIGHT, 0x0001, "ROB Message") \
-        DEFINE_INPUT(DPAD_UP, 0x0800, "Menu Up") \
-        DEFINE_INPUT(DPAD_RIGHT, 0x0100, "Menu Right") \
-        DEFINE_INPUT(DPAD_DOWN, 0x0400, "Menu Down") \
-        DEFINE_INPUT(DPAD_LEFT, 0x0200, "Menu Left") \
-        DEFINE_INPUT(L, 0x0020, "L (debug)")
+        DEFINE_INPUT(A, 0x8000, "Attack / Cast / Interact (A)") \
+        DEFINE_INPUT(B, 0x4000, "Cancel Magic / Rotate View (B)") \
+        DEFINE_INPUT(Z, 0x2000, "Cycle Camera Zoom (Z)") \
+        DEFINE_INPUT(R, 0x0010, "Inventory (R)") \
+        DEFINE_INPUT(START, 0x1000, "Status / Pause (Start)") \
+        DEFINE_INPUT(C_UP, 0x0008, "Fire (alternate)") \
+        DEFINE_INPUT(C_LEFT, 0x0002, "Earth (alternate)") \
+        DEFINE_INPUT(C_DOWN, 0x0004, "Water (alternate)") \
+        DEFINE_INPUT(C_RIGHT, 0x0001, "Wind (alternate)") \
+        DEFINE_INPUT(DPAD_UP, 0x0800, "Fire (D-pad Up)") \
+        DEFINE_INPUT(DPAD_RIGHT, 0x0100, "Wind (D-pad Right)") \
+        DEFINE_INPUT(DPAD_DOWN, 0x0400, "Water (D-pad Down)") \
+        DEFINE_INPUT(DPAD_LEFT, 0x0200, "Earth (D-pad Left)") \
+        DEFINE_INPUT(L, 0x0020, "Switch Locked Enemy (L)")
 
     #define DEFINE_N64_AXIS_INPUTS() \
-        DEFINE_INPUT(Y_AXIS_POS, 0, "Up") \
-        DEFINE_INPUT(Y_AXIS_NEG, 0, "Down") \
-        DEFINE_INPUT(X_AXIS_NEG, 0, "Left") \
-        DEFINE_INPUT(X_AXIS_POS, 0, "Right") \
+        DEFINE_INPUT(Y_AXIS_POS, 0, "Move Forward") \
+        DEFINE_INPUT(Y_AXIS_NEG, 0, "Move Back") \
+        DEFINE_INPUT(X_AXIS_NEG, 0, "Move Left") \
+        DEFINE_INPUT(X_AXIS_POS, 0, "Move Right") \
+        DEFINE_INPUT(CAMERA_LEFT, 0, "Orbit Camera Left") \
+        DEFINE_INPUT(CAMERA_RIGHT, 0, "Orbit Camera Right") \
+        DEFINE_INPUT(CAMERA_UP, 0, "Raise Camera") \
+        DEFINE_INPUT(CAMERA_DOWN, 0, "Lower Camera") \
 
     #define DEFINE_RECOMP_UI_INPUTS() \
         DEFINE_INPUT(TOGGLE_MENU, 0, "Toggle Menu") \
@@ -91,7 +95,7 @@ namespace recomp {
     void config_menu_set_cont_or_kb(bool cont_interacted);
     InputField get_scanned_input();
     int get_scanned_input_index();
-    
+
     struct DefaultN64Mappings {
         std::vector<InputField> a;
         std::vector<InputField> b;
@@ -114,6 +118,11 @@ namespace recomp {
         std::vector<InputField> analog_right;
         std::vector<InputField> analog_up;
         std::vector<InputField> analog_down;
+
+        std::vector<InputField> camera_left;
+        std::vector<InputField> camera_right;
+        std::vector<InputField> camera_up;
+        std::vector<InputField> camera_down;
 
         std::vector<InputField> toggle_menu;
         std::vector<InputField> accept_menu;
@@ -141,6 +150,10 @@ namespace recomp {
             case GameInput::X_AXIS_POS: return defaults.analog_right;
             case GameInput::Y_AXIS_POS: return defaults.analog_up;
             case GameInput::Y_AXIS_NEG: return defaults.analog_down;
+            case GameInput::CAMERA_LEFT: return defaults.camera_left;
+            case GameInput::CAMERA_RIGHT: return defaults.camera_right;
+            case GameInput::CAMERA_UP: return defaults.camera_up;
+            case GameInput::CAMERA_DOWN: return defaults.camera_down;
             case GameInput::TOGGLE_MENU: return defaults.toggle_menu;
             case GameInput::ACCEPT_MENU: return defaults.accept_menu;
             case GameInput::APPLY_MENU: return defaults.apply_menu;
@@ -154,6 +167,11 @@ namespace recomp {
     constexpr size_t bindings_per_input = 2;
 
     size_t get_num_inputs();
+    int get_binding_profile();
+    void set_binding_profile(int profile);
+    void set_battle_input_active(bool active);
+    void get_camera_analog(float* x,float* y);
+    float get_camera_binding_analog(const InputField& field);
     const std::string& get_input_name(GameInput input);
     const std::string& get_input_enum_name(GameInput input);
     GameInput get_input_from_enum_name(const std::string_view name);
@@ -166,11 +184,11 @@ namespace recomp {
     void handle_events();
 
     ultramodern::input::connected_device_info_t get_connected_device_info(int controller_num);
-    
+
     // Rumble strength ranges from 0 to 100.
     int get_rumble_strength();
     void set_rumble_strength(int strength);
-    
+
     // Gyro and mouse sensitivities range from 0 to 100.
     int get_gyro_sensitivity();
     int get_mouse_sensitivity();

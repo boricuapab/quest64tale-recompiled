@@ -23,6 +23,21 @@ ignored = [
 ]
 
 [[patches.hook]]
+func = "func_80001800"
+before_vram = 0x80001B14
+text = "MEM_W(0, 0x8007B2F8) = 0; MEM_W(0, 0x80087200) = 0; extern int qs64_battle_pause_input(uint8_t*); int qs64_pause_action = qs64_battle_pause_input(rdram); if (qs64_pause_action == 3) goto L_80001FF4; if (qs64_pause_action == 2) func_8001CFE8(rdram, ctx); if (qs64_pause_action == 1) goto qs64_pause_render_frame;"
+
+[[patches.hook]]
+func = "func_80001800"
+before_vram = 0x80001BB0
+text = "qs64_pause_render_frame:;"
+
+[[patches.hook]]
+func = "func_80001800"
+before_vram = 0x80001BF8
+text = "extern int qs64_battle_paused(void); if (qs64_battle_paused()) { MEM_W(0X58, ctx->r29) = ctx->r9; goto L_80001E88; }"
+
+[[patches.hook]]
 func = "func_800314C0"
 before_vram = 0x800314C0
 text = "extern void qs64_mod_tick(uint8_t*); qs64_mod_tick(rdram);"
@@ -31,11 +46,6 @@ text = "extern void qs64_mod_tick(uint8_t*); qs64_mod_tick(rdram);"
 func = "func_80001800"
 before_vram = 0x800020AC
 text = "extern void qs64_mod_finish_warp(uint8_t*); qs64_mod_finish_warp(rdram);"
-
-[[patches.hook]]
-func = "func_80002F60"
-before_vram = 0x80002F60
-text = "extern void qs64_mod_player_tick(uint8_t*); qs64_mod_player_tick(rdram);"
 
 [[patches.hook]]
 func = "func_800027D0"
@@ -65,15 +75,92 @@ text = "extern void qs64_zone_begin(uint8_t*); qs64_zone_begin(rdram);"
 [[patches.hook]]
 func = "func_8001E25C"
 before_vram = 0x8001E25C
-text = "extern void qs64_health_begin(void); qs64_health_begin();"
+text = "extern void qs64_health_begin(void); qs64_health_begin(); extern void qs64_hud_mark(uint8_t*, int); qs64_hud_mark(rdram, 1);"
 
 
 [[patches.hook]]
 func = "func_8001E25C"
 before_vram = 0x8001E7F4
-text = "extern void qs64_health_collect(uint8_t*); extern void qs64_health_draw(uint8_t*); qs64_health_collect(rdram); qs64_health_draw(rdram);"
+text = "extern void qs64_hud_mark(uint8_t*, int); qs64_hud_mark(rdram, 0); extern void qs64_health_collect(uint8_t*); extern void qs64_health_draw(uint8_t*); qs64_health_collect(rdram); qs64_health_draw(rdram); extern void qs64_progression_draw(uint8_t*); qs64_progression_draw(rdram); extern void qs64_camera_end(uint8_t*); qs64_camera_end(rdram);"
 
 [[patches.hook]]
 func = "func_80002918"
 before_vram = 0x80002918
-text = "extern void qs64_restore_spawn(uint8_t*); qs64_restore_spawn(rdram);"
+text = "extern void qs64_mod_prepare_spawn(uint8_t*); qs64_mod_prepare_spawn(rdram); extern void qs64_restore_spawn(uint8_t*); qs64_restore_spawn(rdram);"
+
+# Anchor complete native widgets, keeping element-selection popups centered.
+[[patches.hook]]
+func = "func_8001E7FC"
+before_vram = 0x8001E7FC
+text = "extern void qs64_hud_mark(uint8_t*, int); qs64_hud_mark(rdram, 2);"
+
+[[patches.hook]]
+func = "func_8001E7FC"
+before_vram = 0x8001EA7C
+text = "extern void qs64_hud_mark(uint8_t*, int); qs64_hud_mark(rdram, 1);"
+
+[[patches.hook]]
+func = "func_8001EBDC"
+before_vram = 0x8001EBDC
+text = "extern void qs64_hud_mark(uint8_t*, int); qs64_hud_mark(rdram, 2);"
+
+[[patches.hook]]
+func = "func_8001EBDC"
+before_vram = 0x8001ED54
+text = "extern void qs64_hud_mark(uint8_t*, int); qs64_hud_mark(rdram, 1);"
+
+[[patches.hook]]
+func = "func_8001EA84"
+before_vram = 0x8001EA84
+text = "extern void qs64_hud_mark(uint8_t*, int); qs64_hud_mark(rdram, 3);"
+
+[[patches.hook]]
+func = "func_8001EA84"
+before_vram = 0x8001EBD4
+text = "extern void qs64_hud_mark(uint8_t*, int); qs64_hud_mark(rdram, 1);"
+
+[[patches.hook]]
+func = "func_80002F60"
+before_vram = 0x80002F60
+text = "extern void qs64_camera_controls(uint8_t*); qs64_camera_controls(rdram);"
+
+[[patches.hook]]
+func = "func_80002F60"
+before_vram = 0x8000312C
+text = "extern void qs64_lock_attack(uint8_t*); qs64_lock_attack(rdram);"
+
+[[patches.hook]]
+func = "func_80003B60"
+before_vram = 0x80003C3C
+text = "extern void qs64_movement_begin(uint8_t*); qs64_movement_begin(rdram);"
+
+[[patches.hook]]
+func = "func_80003B60"
+before_vram = 0x80003C44
+text = "extern void qs64_movement_end(uint8_t*); qs64_movement_end(rdram);"
+
+
+[[patches.hook]]
+func = "func_80004448"
+before_vram = 0x80004570
+text = "extern void qs64_attack_experience(uint8_t*, uint32_t, int, unsigned); qs64_attack_experience(rdram, (uint32_t)ctx->r2, 0, 1);"
+
+[[patches.hook]]
+func = "func_80016A84"
+before_vram = 0x80016AF8
+text = "extern void qs64_attack_experience(uint8_t*, uint32_t, int, unsigned); qs64_attack_experience(rdram, (uint32_t)ctx->r3, 1, 1);"
+
+[[patches.hook]]
+func = "func_80016520"
+before_vram = 0x800165BC
+text = "extern void qs64_attack_experience(uint8_t*, uint32_t, int, unsigned); qs64_attack_experience(rdram, (uint32_t)ctx->r2, 1, 1);"
+
+[[patches.hook]]
+func = "func_80012BE0"
+before_vram = 0x80012D08
+text = "extern void qs64_camera_begin(uint8_t*); qs64_camera_begin(rdram);"
+
+[[patches.hook]]
+func = "func_80012BE0"
+before_vram = 0x80012BE0
+text = "extern void qs64_camera_end(uint8_t*); qs64_camera_end(rdram);"

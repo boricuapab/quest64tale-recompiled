@@ -307,6 +307,10 @@ void assign_all_mappings(recomp::InputDevice device, const recomp::DefaultN64Map
     assign_mapping_complete(device, recomp::GameInput::X_AXIS_POS, values.analog_right);
     assign_mapping_complete(device, recomp::GameInput::Y_AXIS_NEG, values.analog_down);
     assign_mapping_complete(device, recomp::GameInput::Y_AXIS_POS, values.analog_up);
+    assign_mapping_complete(device,recomp::GameInput::CAMERA_LEFT,values.camera_left);
+    assign_mapping_complete(device,recomp::GameInput::CAMERA_RIGHT,values.camera_right);
+    assign_mapping_complete(device,recomp::GameInput::CAMERA_UP,values.camera_up);
+    assign_mapping_complete(device,recomp::GameInput::CAMERA_DOWN,values.camera_down);
 
     assign_mapping_complete(device, recomp::GameInput::TOGGLE_MENU, values.toggle_menu);
     assign_mapping_complete(device, recomp::GameInput::ACCEPT_MENU, values.accept_menu);
@@ -314,8 +318,13 @@ void assign_all_mappings(recomp::InputDevice device, const recomp::DefaultN64Map
 };
 
 void zelda64::reset_input_bindings() {
-    assign_all_mappings(recomp::InputDevice::Keyboard, recomp::default_n64_keyboard_mappings);
-    assign_all_mappings(recomp::InputDevice::Controller, recomp::default_n64_controller_mappings);
+    int previous=recomp::get_binding_profile();
+    for(int profile=0;profile<2;profile++){
+        recomp::set_binding_profile(profile);
+        assign_all_mappings(recomp::InputDevice::Keyboard, recomp::default_n64_keyboard_mappings);
+        assign_all_mappings(recomp::InputDevice::Controller, recomp::default_n64_controller_mappings);
+    }
+    recomp::set_binding_profile(previous);
 }
 
 void zelda64::reset_cont_input_bindings() {
@@ -384,15 +393,21 @@ void add_input_bindings(nlohmann::json& out, recomp::GameInput input, recomp::In
 bool save_controls_config(const std::filesystem::path& path) {
     nlohmann::json config_json{};
 
-    config_json["keyboard"] = {};
-    config_json["controller"] = {};
-
-    for (size_t i = 0; i < recomp::get_num_inputs(); i++) {
-        recomp::GameInput cur_input = static_cast<recomp::GameInput>(i);
-
-        add_input_bindings(config_json["keyboard"], cur_input, recomp::InputDevice::Keyboard);
-        add_input_bindings(config_json["controller"], cur_input, recomp::InputDevice::Controller);
+    int previous=recomp::get_binding_profile();
+    config_json["binding_profiles_version"]=2;
+    for(int profile=0;profile<2;profile++){
+        recomp::set_binding_profile(profile);
+        auto& data=config_json["profiles"][profile==0?"overworld":"battle"];
+        data["keyboard"]={};data["controller"]={};
+        for (size_t i = 0; i < recomp::get_num_inputs(); i++) {
+            recomp::GameInput cur_input = static_cast<recomp::GameInput>(i);
+            add_input_bindings(data["keyboard"], cur_input, recomp::InputDevice::Keyboard);
+            add_input_bindings(data["controller"], cur_input, recomp::InputDevice::Controller);
+        }
     }
+    recomp::set_binding_profile(previous);
+    config_json["keyboard"]=config_json["profiles"]["overworld"]["keyboard"];
+    config_json["controller"]=config_json["profiles"]["overworld"]["controller"];
 
     return save_json_with_backups(path, config_json);
 }
@@ -413,7 +428,7 @@ bool load_input_device_from_json(const nlohmann::json& config_json, recomp::Inpu
         // Check if the json object for the given input exists and that it's an array.
         auto find_input_it = mappings_json.find(input_name);
         if (find_input_it == mappings_json.end() || !find_input_it->is_array()) {
-            assign_mapping(
+            assign_mapping_complete(
                 device,
                 cur_input,
                 recomp::get_default_mapping_for_input(
@@ -426,6 +441,7 @@ bool load_input_device_from_json(const nlohmann::json& config_json, recomp::Inpu
             continue;
         }
         const nlohmann::json& input_json = *find_input_it;
+        for(size_t slot=0;slot<recomp::bindings_per_input;slot++)recomp::set_input_binding(cur_input,slot,device,{});
 
         // Deserialize all the bindings from the json array (up to the max number of bindings per input).
         for (size_t binding_index = 0; binding_index < std::min(recomp::bindings_per_input, input_json.size()); binding_index++) {
@@ -444,13 +460,29 @@ bool load_controls_config(const std::filesystem::path& path) {
         return false;
     }
 
-    if (!load_input_device_from_json(config_json, recomp::InputDevice::Keyboard, "keyboard")) {
-        assign_all_mappings(recomp::InputDevice::Keyboard, recomp::default_n64_keyboard_mappings);
+    // Existing controls become the starting point for both profiles. Remove
+    // only the exact obsolete default C-button controller pairs; custom
+    // bindings and the existing attack/zoom/targeting buttons are preserved.
+    if(!config_json.contains("profiles")&&config_json.contains("controller")){
+        struct Legacy{const char* name;int type0,id0,type1,id1;};
+        for(auto old:std::array<Legacy,4>{{{"C_LEFT",3,3,4,6},{"C_RIGHT",4,3,3,1},{"C_UP",4,-4,3,8},{"C_DOWN",3,1,4,5}}}){
+            auto& mappings=config_json["controller"];
+            if(!mappings.contains(old.name)||!mappings[old.name].is_array())continue;
+            const auto& pair=mappings[old.name];
+            if(pair.size()==2&&pair[0].value("input_type",-1)==old.type0&&pair[0].value("input_id",0)==old.id0&&
+               pair[1].value("input_type",-1)==old.type1&&pair[1].value("input_id",0)==old.id1)
+                mappings[old.name]=nlohmann::json::array();
+        }
     }
-
-    if (!load_input_device_from_json(config_json, recomp::InputDevice::Controller, "controller")) {
-        assign_all_mappings(recomp::InputDevice::Controller, recomp::default_n64_controller_mappings);
+    int previous=recomp::get_binding_profile();
+    for(int profile=0;profile<2;profile++){
+        recomp::set_binding_profile(profile);
+        const char* name=profile==0?"overworld":"battle";
+        const auto& data=config_json.contains("profiles")&&config_json["profiles"].contains(name)?config_json["profiles"][name]:config_json;
+        if(!load_input_device_from_json(data,recomp::InputDevice::Keyboard,"keyboard"))assign_all_mappings(recomp::InputDevice::Keyboard,recomp::default_n64_keyboard_mappings);
+        if(!load_input_device_from_json(data,recomp::InputDevice::Controller,"controller"))assign_all_mappings(recomp::InputDevice::Controller,recomp::default_n64_controller_mappings);
     }
+    recomp::set_binding_profile(previous);
     return true;
 }
 

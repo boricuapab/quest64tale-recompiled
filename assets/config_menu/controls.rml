@@ -5,6 +5,13 @@
         <form class="config__form" data-attr-cur-input="cur_input_row" data-attr-cur-binding-slot="active_binding_slot">
             <div class="config__header">
                 <div class="config__header-left">
+                    <div class="config-debug__select-wrapper" style="width: 340dp; margin-right: 12dp">
+                        <div class="config-debug__select-label" style="width: 90dp"><div>Profile</div></div>
+                        <select data-value="binding_profile" data-event-change="change_binding_profile">
+                            <option value="0">Overworld</option>
+                            <option value="1">Battle</option>
+                        </select>
+                    </div>
                     <button
                         class="toggle"
                         id="cont_kb_toggle"
@@ -35,6 +42,7 @@
                     <div class="input-config__mappings" data-event-mouseout="set_input_row_focus(-1)">
                         <div class="input-config__mappings-scroll">
                             <div class="input-config__mappings-wrapper">
+                                <p>Profiles switch automatically in battle. D-pad: Up = Fire, Down = Water, Left = Earth, Right = Wind. Right stick = camera; Z = zoom; A = attack/cast; L = switch target. All gameplay bindings below can be changed per profile.</p>
                                 <div
                                     class="control-option"
                                     data-attr-id="'input_row_' + i"
@@ -357,4 +365,3 @@
         </form>
     </body>
 </template>
-    

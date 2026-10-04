@@ -46,12 +46,17 @@
                             <label class="config-debug-option__label"><div>Boss fight</div></label>
                             <div class="config-debug__option-split">
                                 <div class="config-debug__option-controls">
-                                    <select data-value="boss_index"><option data-for="boss, i : boss_names" data-attr-value="i">{{boss}}</option></select>
+                                    <div class="config-debug__select-wrapper">
+                                        <div class="config-debug__select-label"><div>Boss</div></div>
+                                        <select data-value="boss_index" id="boss_index_select">
+                                            <option data-for="boss, i : boss_names" data-attr-value="i">{{boss}}</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div class="config-debug__option-trigger"><button class="icon-button icon-button--success" onclick="do_boss"><svg src="icons/Arrow.svg" /></button></div>
                             </div>
                         </div>
-                        <p>Load a game before travelling. Finish active battles first. Boss selection reopens that encounter; defeating it uses normal story progression.</p>
+                        <p>Load a game before travelling. Finish active battles first. Boss travel places Brian at the area's normal entrance. Approach the boss to start the reopened encounter; defeating it uses normal story progression.</p>
                     </div>
                 </div>
             </div>

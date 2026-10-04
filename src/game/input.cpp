@@ -31,7 +31,7 @@ static struct {
     std::mutex cur_controllers_mutex;
     std::vector<SDL_GameController*> cur_controllers{};
     std::unordered_map<SDL_JoystickID, ControllerState> controller_states;
-    
+
     std::array<float, 2> rotation_delta{};
     std::array<float, 2> mouse_delta{};
     std::mutex pending_input_mutex;
@@ -97,7 +97,7 @@ bool should_override_keystate(SDL_Scancode key, SDL_Keymod mod) {
         }
     }
 
-    return false;        
+    return false;
 }
 
 bool sdl_event_filter(void* userdata, SDL_Event* event) {
@@ -166,7 +166,7 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
     }
     case SDL_EventType::SDL_MOUSEWHEEL:
         {
-            SDL_MouseWheelEvent* wheel_event = &event->wheel;    
+            SDL_MouseWheelEvent* wheel_event = &event->wheel;
             InputState.mouse_wheel_pos.fetch_add(wheel_event->y * (wheel_event->direction == SDL_MOUSEWHEEL_FLIPPED ? -1 : 1));
         }
         queue_if_enabled(event);
@@ -216,7 +216,7 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
                 set_stick_return_event.user.data1 = nullptr;
                 set_stick_return_event.user.data2 = nullptr;
                 recompui::queue_event(set_stick_return_event);
-                
+
                 set_scanned_input({(uint32_t)InputType::ControllerAnalog, axis_event->axis + 1});
             }
             else if (axis_value < -axis_threshold) {
@@ -305,7 +305,7 @@ void recomp::handle_events() {
     while (SDL_PollEvent(&cur_event) && !exited) {
         exited = sdl_event_filter(nullptr, &cur_event);
 
-        // Lock the cursor if all three conditions are true: mouse aiming is enabled, game input is not disabled, and the game has been started. 
+        // Lock the cursor if all three conditions are true: mouse aiming is enabled, game input is not disabled, and the game has been started.
         bool cursor_locked = (recomp::get_mouse_sensitivity() != 0) && !recomp::game_input_disabled() && ultramodern::is_game_started();
 
         // Hide the cursor based on its enable state, but override visibility to false if the cursor is locked.
@@ -415,20 +415,12 @@ const recomp::DefaultN64Mappings recomp::default_n64_controller_mappings = {
         {.input_type = (uint32_t)InputType::ControllerDigital, .input_id = SDL_CONTROLLER_BUTTON_START},
     },
     .c_left = {
-        {.input_type = (uint32_t)InputType::ControllerDigital, .input_id = SDL_CONTROLLER_BUTTON_NORTH},
-        {.input_type = (uint32_t)InputType::ControllerAnalog, .input_id = SDL_CONTROLLER_AXIS_TRIGGERRIGHT + 1},
     },
     .c_right = {
-        {.input_type = (uint32_t)InputType::ControllerAnalog, .input_id = SDL_CONTROLLER_AXIS_RIGHTX + 1},
-        {.input_type = (uint32_t)InputType::ControllerDigital, .input_id = SDL_CONTROLLER_BUTTON_EAST},
     },
     .c_up = {
-        {.input_type = (uint32_t)InputType::ControllerAnalog, .input_id = -(SDL_CONTROLLER_AXIS_RIGHTY + 1)},
-        {.input_type = (uint32_t)InputType::ControllerDigital, .input_id = SDL_CONTROLLER_BUTTON_RIGHTSTICK},
     },
     .c_down = {
-        {.input_type = (uint32_t)InputType::ControllerDigital, .input_id = SDL_CONTROLLER_BUTTON_EAST},
-        {.input_type = (uint32_t)InputType::ControllerAnalog, .input_id = SDL_CONTROLLER_AXIS_TRIGGERLEFT + 1},
     },
     .dpad_left = {
         {.input_type = (uint32_t)InputType::ControllerDigital, .input_id = SDL_CONTROLLER_BUTTON_DPAD_LEFT},
@@ -454,6 +446,10 @@ const recomp::DefaultN64Mappings recomp::default_n64_controller_mappings = {
     .analog_down = {
         {.input_type = (uint32_t)InputType::ControllerAnalog, .input_id = SDL_CONTROLLER_AXIS_LEFTY + 1},
     },
+    .camera_left = {{.input_type=(uint32_t)InputType::ControllerAnalog,.input_id=-(SDL_CONTROLLER_AXIS_RIGHTX+1)}},
+    .camera_right = {{.input_type=(uint32_t)InputType::ControllerAnalog,.input_id=SDL_CONTROLLER_AXIS_RIGHTX+1}},
+    .camera_up = {{.input_type=(uint32_t)InputType::ControllerAnalog,.input_id=-(SDL_CONTROLLER_AXIS_RIGHTY+1)}},
+    .camera_down = {{.input_type=(uint32_t)InputType::ControllerAnalog,.input_id=SDL_CONTROLLER_AXIS_RIGHTY+1}},
     .toggle_menu = {
         {.input_type = (uint32_t)InputType::ControllerDigital, .input_id = SDL_CONTROLLER_BUTTON_BACK},
     },
@@ -486,14 +482,14 @@ void recomp::poll_inputs() {
     // Read the deltas while resetting them to zero.
     {
         std::lock_guard lock{ InputState.pending_input_mutex };
-        
+
         InputState.rotation_delta = InputState.pending_rotation_delta;
         InputState.pending_rotation_delta = { 0.0f, 0.0f };
 
         InputState.mouse_delta = InputState.pending_mouse_delta;
         InputState.pending_mouse_delta = { 0.0f, 0.0f };
     }
-    
+
     // Quicksaving is disabled for now and will likely have more limited functionality
     // when restored, rather than allowing saving and loading at any point in time.
     #if 0
@@ -692,7 +688,7 @@ void recomp::apply_joystick_deadzone(float x_in, float y_in, float* x_out, float
     else {
         if(x_in > 0.0f) {
             x_in -= joystick_deadzone;
-        } 
+        }
         else {
             x_in += joystick_deadzone;
         }
@@ -706,7 +702,7 @@ void recomp::apply_joystick_deadzone(float x_in, float y_in, float* x_out, float
     else {
         if(y_in > 0.0f) {
             y_in -= joystick_deadzone;
-        } 
+        }
         else {
             y_in += joystick_deadzone;
         }
@@ -726,6 +722,11 @@ void recomp::get_right_analog(float* x, float* y) {
         controller_axis_state((SDL_GameControllerAxis::SDL_CONTROLLER_AXIS_RIGHTY + 1), false) -
         controller_axis_state(-(SDL_GameControllerAxis::SDL_CONTROLLER_AXIS_RIGHTY + 1), false);
     recomp::apply_joystick_deadzone(x_val, y_val, x, y);
+}
+
+float recomp::get_camera_binding_analog(const InputField& field){
+    if(InputType(field.input_type)==InputType::ControllerAnalog)return controller_axis_state(field.input_id,false);
+    return get_input_analog(field);
 }
 
 void recomp::set_right_analog_suppressed(bool suppressed) {

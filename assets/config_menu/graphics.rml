@@ -98,6 +98,12 @@
                                 data-attr-style="res_option == 'Auto' ? 'nav-up:#res_original; nav-down: #wm_windowed' : 'nav-up:#ds_windowed; nav-down: #wm_windowed'"
                             />
                             <label class="config-option__tab-label" for="ar_original">Original</label>
+                            <input type="radio" name="aspectratio" data-checked="ar_option"
+                                value="Manual" id="ar_16_9"
+                                data-event-focus="set_cur_config_index(2)"
+                                data-event-blur="set_cur_config_index(-1)"
+                                style="nav-up: #ds_2x; nav-down: #wm_fullscreen" />
+                            <label class="config-option__tab-label" for="ar_16_9">16:9</label>
                             <input type="radio"
                                 data-event-blur="set_cur_config_index(-1)"
                                 data-event-focus="set_cur_config_index(2)"
@@ -142,7 +148,7 @@
                         <label class="config-option__title">Framerate</label>
                         <div class="config-option__list">
                             <input type="radio"
-                                data-event-blur="set_cur_config_index(-1)" 
+                                data-event-blur="set_cur_config_index(-1)"
                                 data-event-focus="set_cur_config_index(4)"
                                 name="refreshrate"
                                 data-checked="rr_option"
@@ -152,7 +158,7 @@
                             />
                             <label class="config-option__tab-label" for="rr_original">Original</label>
                             <input type="radio"
-                                data-event-blur="set_cur_config_index(-1)" 
+                                data-event-blur="set_cur_config_index(-1)"
                                 data-event-focus="set_cur_config_index(4)"
                                 name="refreshrate"
                                 data-checked="rr_option"
@@ -163,7 +169,7 @@
                             />
                             <label class="config-option__tab-label" for="rr_display">Display</label>
                             <input type="radio"
-                                data-event-blur="set_cur_config_index(-1)" 
+                                data-event-blur="set_cur_config_index(-1)"
                                 data-event-focus="set_cur_config_index(4)"
                                 name="refreshrate"
                                 data-checked="rr_option"

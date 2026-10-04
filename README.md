@@ -62,3 +62,15 @@ Code is GPL-3.0; see [LICENSE](LICENSE). Third-party components retain their own
 
 
 New gameplay packs require v1.0.7. Enable Auto Save to record area checkpoints, then use **Restore Auto Save** in the Mods footer to recover one. Choose encounter frequency under **Random Encounter Rate → Configure**. Enemy health bars appear above visible combat enemies and bosses.
+
+Local v1.0.8 candidates add camera-relative movement, independent Overworld/Battle bindings, right-stick orbit, Z zoom, A attack targeting and L target cycling. **Graphics → Aspect Ratio → 16:9** applies to the renderer globally; **HUD Placement** anchors the native Quest HUD within 16:9 or the full display width. XP and destination overlays use smaller layouts that adapt to the aspect ratio. In battle, **Start** opens **Return / Escape / Quit**; use A to select and B or Start to return. Escape uses native retreat cleanup without boss rewards or progression.
+
+Optional v1.0.8 packs include **All Stats Experience**, **Story Direction Arrow**, and **Spirit Tracker**. The spirit tracker counts the current level's remaining spirits and shows a smaller orange 3D arrow toward the nearest spirit or a connecting doorway. World arrows are clipped inside the cleared gameplay viewport.
+
+The latest local candidate fixes full-width door fades, framebuffer clearing,
+native HUD group alignment, readable XP bars and analog battle pause navigation.
+Escape is unavailable in boss fights; Quit returns to the title menu. Battle
+targets are acquired automatically and marked with brackets sized around their
+bodies. Spirit Tracker includes collected/total and remaining counts.
+**Spell Preview** adds native hit radius, target distance and element matchup
+labels. Hit radius describes the collision area rather than projectile reach.

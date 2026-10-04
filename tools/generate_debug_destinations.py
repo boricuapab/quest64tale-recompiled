@@ -19,13 +19,14 @@ for map_id,name in enumerate(names):
             spawn=start+spawn_ptr-base+entrance*20
             assert start<=spawn<end
             x,z,heading=struct.unpack_from('>fff',rom,spawn)
-            destinations.append(dict(map=map_id,submap=submap,entrance=entrance,x=x,z=z,heading=heading))
+            flags,door=struct.unpack_from('>HH',rom,spawn+12)
+            destinations.append(dict(map=map_id,submap=submap,entrance=entrance,x=x,z=z,heading=heading,flags=flags,door=door))
             labels.append('Entrance '+str(entrance+1))
         scene_name='Submap '+str(submap+1)
         if map_id==13 and submap==17:scene_name="Abbot's Chamber"
         scenes.append(dict(index=submap,name=scene_name,entrances=labels))
     areas.append(dict(name=name,scenes=scenes))
-boss_names=['Solvaring','Zelse','Nepty','Fargo','Guilty','Fale','King Beigis','Mammon']
+boss_names=['Solvaring','Zelse','Nepty','Shilf','Fargo','Guilty','King Beigis','Mammon']
 bosses=[]
 for i,name in enumerate(boss_names):
     map_id,submap,model,pad,ptr,x,z,heading=struct.unpack_from('>HHHHIfff',rom,0xd873a0+i*24)
@@ -40,7 +41,7 @@ out.append('};');(root/'src/game/scene_table.cpp').write_text('\n'.join(out))
 data=['// Generated from the verified Quest 64 US ROM.','static constexpr Destination destinations[] = {']
 for d in destinations:
     def f(v):return str(float(v))+'f'
-    data.append('{'+','.join(str(d[k]) for k in ['map','submap','entrance'])+','+','.join(f(d[k]) for k in ['x','z','heading'])+'},')
+    data.append('{'+','.join(str(d[k]) for k in ['map','submap','entrance'])+','+','.join(f(d[k]) for k in ['x','z','heading'])+','+str(d['flags'])+','+str(d['door'])+'},')
 data.append('};');data.append('static constexpr BossDestination bosses[] = {')
 for b in bosses:data.append('{'+json.dumps(b['name'])+','+','.join(str(b[k]) for k in ['map','submap','mask'])+'},')
 data.append('};');(root/'src/game/quest64_destinations.inc').write_text('\n'.join(data))

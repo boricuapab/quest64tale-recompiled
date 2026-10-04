@@ -1,14 +1,18 @@
 #include <array>
+#include <atomic>
+#include <algorithm>
 
-#include "librecomp/helpers.hpp"
 #include "recomp_input.h"
-#include "ultramodern/ultramodern.hpp"
 
 // Arrays that hold the mappings for every input for keyboard and controller respectively.
 using input_mapping = std::array<recomp::InputField, recomp::bindings_per_input>;
 using input_mapping_array = std::array<input_mapping, static_cast<size_t>(recomp::GameInput::COUNT)>;
-static input_mapping_array keyboard_input_mappings{};
-static input_mapping_array controller_input_mappings{};
+static std::array<input_mapping_array,2> keyboard_profiles{},controller_profiles{};
+static int editing_profile=0;
+static std::atomic<bool> battle_input_active=false;
+int recomp::get_binding_profile(){return editing_profile;}
+void recomp::set_binding_profile(int profile){editing_profile=profile==1?1:0;}
+void recomp::set_battle_input_active(bool active){battle_input_active=active;}
 
 // Make the button value array, which maps a button index to its bit field.
 #define DEFINE_INPUT(name, value, readable) uint16_t(value##u),
@@ -54,7 +58,8 @@ recomp::GameInput recomp::get_input_from_enum_name(const std::string_view enum_n
 
 // Due to an RmlUi limitation this can't be const. Ideally it would return a const reference or even just a straight up copy.
 recomp::InputField& recomp::get_input_binding(GameInput input, size_t binding_index, recomp::InputDevice device) {
-    input_mapping_array& device_mappings = (device == recomp::InputDevice::Controller) ?  controller_input_mappings : keyboard_input_mappings;
+    int profile=input>=recomp::GameInput::TOGGLE_MENU?0:editing_profile;
+    input_mapping_array& device_mappings = (device == recomp::InputDevice::Controller) ? controller_profiles[profile] : keyboard_profiles[profile];
     input_mapping& cur_input_mapping = device_mappings.at(static_cast<size_t>(input));
 
     if (binding_index < cur_input_mapping.size()) {
@@ -67,7 +72,8 @@ recomp::InputField& recomp::get_input_binding(GameInput input, size_t binding_in
 }
 
 void recomp::set_input_binding(recomp::GameInput input, size_t binding_index, recomp::InputDevice device, recomp::InputField value) {
-    input_mapping_array& device_mappings = (device == recomp::InputDevice::Controller) ?  controller_input_mappings : keyboard_input_mappings;
+    int profile=input>=recomp::GameInput::TOGGLE_MENU?0:editing_profile;
+    input_mapping_array& device_mappings = (device == recomp::InputDevice::Controller) ? controller_profiles[profile] : keyboard_profiles[profile];
     input_mapping& cur_input_mapping = device_mappings.at(static_cast<size_t>(input));
 
     if (binding_index < cur_input_mapping.size()) {
@@ -76,10 +82,13 @@ void recomp::set_input_binding(recomp::GameInput input, size_t binding_index, re
 }
 
 bool recomp::get_n64_input(int controller_num, uint16_t* buttons_out, float* x_out, float* y_out) {
+    const size_t profile=battle_input_active.load()?1:0;
+    const auto& keyboard_input_mappings=keyboard_profiles[profile];
+    const auto& controller_input_mappings=controller_profiles[profile];
     uint16_t cur_buttons = 0;
     float cur_x = 0.0f;
     float cur_y = 0.0f;
-    
+
     if (controller_num != 0) {
         return false;
     }
@@ -108,9 +117,25 @@ bool recomp::get_n64_input(int controller_num, uint16_t* buttons_out, float* x_o
                 - recomp::get_input_analog(keyboard_input_mappings[(size_t)GameInput::Y_AXIS_NEG]) + joystick_y;
     }
 
+    if(cur_buttons&0x0800)cur_buttons|=0x0008;
+    if(cur_buttons&0x0400)cur_buttons|=0x0004;
+    if(cur_buttons&0x0200)cur_buttons|=0x0002;
+    if(cur_buttons&0x0100)cur_buttons|=0x0001;
     *buttons_out = cur_buttons;
     *x_out = std::clamp(cur_x * 0.65f, -1.0f, 1.0f);
     *y_out = std::clamp(cur_y * 0.65f, -1.0f, 1.0f);
 
     return true;
+}
+
+void recomp::get_camera_analog(float* x,float* y){
+    const size_t profile=battle_input_active.load()?1:0;
+    auto value=[&](GameInput input){
+        float result=0;
+        for(const auto& field:keyboard_profiles[profile][size_t(input)])result+=get_camera_binding_analog(field);
+        for(const auto& field:controller_profiles[profile][size_t(input)])result+=get_camera_binding_analog(field);
+        return std::clamp(result,0.f,1.f);
+    };
+    apply_joystick_deadzone(value(GameInput::CAMERA_RIGHT)-value(GameInput::CAMERA_LEFT),
+                           value(GameInput::CAMERA_DOWN)-value(GameInput::CAMERA_UP),x,y);
 }

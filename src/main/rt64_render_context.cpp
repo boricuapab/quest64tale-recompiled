@@ -10,6 +10,7 @@
 #include "hle/rt64_application.h"
 #include "gbi/rt64_gbi_f3d.h"
 #include "gbi/rt64_gbi_f3dex.h"
+#include "gbi/rt64_gbi_rdp.h"
 #include "rt64_render_hooks.h"
 #include "overloaded.h"
 
@@ -32,7 +33,72 @@ static uint8_t IMEM[0x1000];
 // Tag the model lists, without changing the original matrices or vertices.
 namespace {
 thread_local std::vector<size_t> brian_group_depths;
+thread_local std::vector<size_t> fade_group_depths;
 thread_local unsigned brian_part_count = 0, shadow_quad_count = 0;
+thread_local int quest64_hud_mode=0;
+void quest64_noop(RT64::State* state,RT64::DisplayList** dl){
+    if((*dl)->w1==0x51455854){state->extended.extendRDRAM=true;return;}
+    if((*dl)->w1==0x51485544)quest64_hud_mode=1;
+    else if((*dl)->w1==0x514C4546)quest64_hud_mode=2;
+    else if((*dl)->w1==0x51524947)quest64_hud_mode=3;
+    else if((*dl)->w1==0x51574F52)quest64_hud_mode=0;
+    else return;
+    // The compass needle is geometry; give it the same origin as its sprites.
+    state->rsp->extended.viewportOrigin=quest64_hud_mode==3?G_EX_ORIGIN_RIGHT:G_EX_ORIGIN_NONE;
+    state->rsp->viewportChanged=true;
+    state->rsp->modelViewProjChanged=true;
+}
+void quest64_rectangle(RT64::State* state,RT64::DisplayList** dl){
+    auto* rdp=state->rdp.get();
+    const uint32_t op=(*dl)->w0>>24;
+    const int x0=(*dl)->p1(12,12),x1=(*dl)->p0(12,12);
+    const int y0=(*dl)->p1(0,12),y1=(*dl)->p0(0,12);
+    // Clear overscan as well as the world. Old edge-anchored HUD pixels must
+    // never survive into the next frame or a different aspect/HUD setting.
+    if(op==0xF6&&quest64_hud_mode==0&&x0==8*4&&x1==311*4&&y0==8*4&&y1==231*4){
+        const auto command=**dl;
+        (*dl)->w0=0xF6000000|(319*4<<12)|(239*4);(*dl)->w1=0;
+        RT64::ExtendedAlignment clear;
+        rdp->setRectAlign(clear);rdp->setScissor(0,0,0,320*4,240*4,clear);
+        RT64::GBI_RDP::fillRect(state,dl);
+        **dl=command;
+        return;
+    }
+    int origin=G_EX_ORIGIN_NONE;
+    if(quest64_hud_mode==2)origin=G_EX_ORIGIN_LEFT;
+    else if(quest64_hud_mode==3)origin=G_EX_ORIGIN_RIGHT;
+    const auto saved=rdp->extended;
+    const bool aligned=origin!=G_EX_ORIGIN_NONE;
+    if(aligned){
+        RT64::ExtendedAlignment rect;
+        rect.leftOrigin=uint16_t(origin);
+        rect.rightOrigin=uint16_t(origin);
+        rect.leftOffset=rect.leftOrigin==G_EX_ORIGIN_RIGHT?-320*4:0;
+        rect.rightOffset=rect.rightOrigin==G_EX_ORIGIN_RIGHT?-320*4:0;
+        rdp->setRectAlign(rect);
+        RT64::ExtendedAlignment scissor;
+        scissor.leftOrigin=G_EX_ORIGIN_LEFT;scissor.rightOrigin=G_EX_ORIGIN_RIGHT;scissor.rightOffset=-320*4;
+        rdp->pushScissor();rdp->setScissor(0,8*4,8*4,312*4,232*4,scissor);
+    }
+    if(op==0xF6)RT64::GBI_RDP::fillRect(state,dl);
+    else if(op==0xE5)RT64::GBI_RDP::texrectFlip(state,dl);
+    else RT64::GBI_RDP::texrect(state,dl);
+    if(aligned){rdp->extended=saved;rdp->popScissor();}
+}
+void quest64_scissor(RT64::State* state,RT64::DisplayList** dl){
+    const auto command=**dl;
+    if((*dl)->p0(12,12)==32&&(*dl)->p1(12,12)==1248){
+        (*dl)->w0 &= ~(0xFFFU<<12);
+        (*dl)->w1=((*dl)->w1&~(0xFFFU<<12))|(1280U<<12);
+        // The original viewport has overscan margins. Widen its clipping
+        // volume so RT64 recognizes the full framebuffer as one projection.
+        state->rsp->clipRatios[0]=2;state->rsp->clipRatios[2]=-2;
+        state->rsp->viewportChanged=true;
+        state->rsp->modelViewProjChanged=true;
+    }
+    RT64::GBI_RDP::setScissor(state,dl);
+    **dl=command;
+}
 bool shadow_depth_diagnostic() {
     static const bool enabled = std::getenv("QUEST64_SHADOW_DEPTH_DIAGNOSTIC") != nullptr;
     return enabled;
@@ -48,6 +114,16 @@ void quest64_model_list(RT64::State* state, RT64::DisplayList** dl) {
     const uint32_t address = state->rsp->fromSegmentedMasked((*dl)->w1);
     const bool call = (*dl)->p0(16, 1) == 0;
     int part = -1;
+    const bool fade=call&&address==0x4D4F0;
+    if(fade){
+        // Door fades are fullscreen geometry, rather than a centered menu.
+        state->rsp->matrixId(0x51464144,true,true,false,
+            G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,
+            G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,
+            G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,
+            G_EX_ORDER_LINEAR,G_EX_ASPECT_STRETCH,G_EX_EDIT_NONE,false,false);
+        state->rsp->modelViewProjChanged=true;
+    }
     // Verify the loaded Brian bank before interpreting its model table.
     if (call && rdram_word(state, 0x20606C) == 0x80206000) {
         for (int i = 0; i < 32; ++i) {
@@ -70,9 +146,15 @@ void quest64_model_list(RT64::State* state, RT64::DisplayList** dl) {
     }
     RT64::GBI_F3D::runDl(state, dl);
     if (part >= 0) brian_group_depths.push_back(state->returnAddressStack.size());
+    if(fade)fade_group_depths.push_back(state->returnAddressStack.size());
 }
 
 void quest64_end_list(RT64::State* state, RT64::DisplayList** dl) {
+    if(!fade_group_depths.empty()&&fade_group_depths.back()==state->returnAddressStack.size()){
+        state->rsp->popMatrixId(1,true);
+        state->rsp->modelViewProjChanged=true;
+        fade_group_depths.pop_back();
+    }
     if (!brian_group_depths.empty() &&
         brian_group_depths.back() == state->returnAddressStack.size()) {
         state->rsp->popMatrixId(1, false);
@@ -266,6 +348,7 @@ void set_application_user_config(RT64::Application* application, const ultramode
     }
 
     application->userConfig.aspectRatio = to_rt64(config.ar_option);
+    application->userConfig.aspectTarget = 16.0 / 9.0;
     application->userConfig.antialiasing = to_rt64(config.msaa_option);
     application->userConfig.refreshRate = to_rt64(config.rr_option);
     application->userConfig.refreshRateTarget = config.rr_manual_value;
@@ -433,13 +516,20 @@ void zelda64::renderer::RT64Context::send_dl(const OSTask* task) {
     app->state->rsp->reset();
     app->interpreter->loadUCodeGBI(task->t.ucode & 0x3FFFFFF, task->t.ucode_data & 0x3FFFFFF, true);
     brian_group_depths.clear();
+    fade_group_depths.clear();
     brian_part_count = shadow_quad_count = 0;
+    quest64_hud_mode=0;
     auto* gbi = app->interpreter->hleGBI;
     if (gbi->ucode == RT64::GBIUCode::F3DEX) {
         gbi->map[0x06] = quest64_model_list;
         gbi->map[0xB8] = quest64_end_list;
         gbi->map[0x04] = quest64_vertex;
         gbi->map[0xB9] = quest64_render_mode;
+        gbi->map[0x00] = quest64_noop;
+        gbi->map[0xE4] = quest64_rectangle;
+        gbi->map[0xE5] = quest64_rectangle;
+        gbi->map[0xF6] = quest64_rectangle;
+        gbi->map[0xED] = quest64_scissor;
     }
     app->processDisplayLists(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF, 0, true);
     trace_quest64_frame(app->state.get());

@@ -12,6 +12,7 @@ if hashlib.sha1(raw).hexdigest()!='91b96e938c6d91699057fad91d726ee5a23ce33a':rai
 for directory in ['rsp','RecompiledFuncs','RecompiledPatches','mods']:(ROOT/directory).mkdir(exist_ok=True)
 run([sys.executable,ROOT/'tools/prepare_ui.py']+(['--font-source',a.font_source] if a.font_source else []))
 run([sys.executable,ROOT/'tools/generate_debug_destinations.py'])
+run([sys.executable,ROOT/'tools/generate_progression_data.py'])
 exe='.exe' if os.name=='nt' else ''
 win=os.name=='nt'; cc='clang-cl' if win else os.environ.get('CC','clang');cxx='clang-cl' if win else os.environ.get('CXX','clang++')
 prefix=ROOT.as_posix()
@@ -25,4 +26,4 @@ for name in ['N64Recomp','RSPRecomp']:shutil.copy2(ROOT/'build/tools'/(name+exe)
 run([ROOT/('N64Recomp'+exe),'us.rev0.toml']);run([ROOT/('RSPRecomp'+exe),'aspMain.toml'])
 run(['cmake','-S','.','-B','build/game',*common])
 run(['cmake','--build','build/game','--target','Quest64Recompiled','--parallel',a.jobs])
-print('Built version 1.0.7 in build/game. Generated code and ROM remain private local files.')
+print('Built version 1.0.8 in build/game. Generated code and ROM remain private local files.')

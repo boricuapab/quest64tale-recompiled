@@ -50,5 +50,4 @@ __pycache__/
 .vs/
 .vscode/
 node_modules/
-"__pycache__/" 
-"*.pyc" 
+src/game/quest64_progression_data.inc
