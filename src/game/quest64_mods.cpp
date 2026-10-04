@@ -1,4 +1,7 @@
 #include "quest64_mods.h"
+#ifndef QUEST64_MOD_TEST
+#include "quest64_fmv.h"
+#endif
 extern "C" void qs64_extra_set(const char*,bool);
 extern "C" void qs64_extra_tick(uint8_t*);
 extern "C" void qs64_extra_reset();
@@ -101,7 +104,14 @@ void quest64::register_gameplay_mods() {
         .on_reordered=nullptr
     };
     auto id=recomp::mods::register_mod_content_type(type);
-    recomp::mods::register_mod_container_type("qsmod",std::vector{id},true);
+    recomp::mods::ModContentType fmv_type{
+        .content_filename="quest64_fmv.json",.allow_runtime_toggle=true,
+        .on_enabled=[](recomp::mods::ModContext& context,const recomp::mods::ModHandle& mod){quest64::fmv_enable(context,mod);},
+        .on_disabled=[](recomp::mods::ModContext&,const recomp::mods::ModHandle& mod){quest64::fmv_disable(mod.manifest.mod_id.c_str());},
+        .on_reordered=nullptr
+    };
+    auto fmv_id=recomp::mods::register_mod_content_type(fmv_type);
+    recomp::mods::register_mod_container_type("qsmod",std::vector{id,fmv_id},true);
 #endif
 }
 bool quest64::request_warp(int map,int submap,int entrance) {
@@ -137,6 +147,9 @@ std::string quest64::debug_status() {
     }
 }
 extern "C" void qs64_mod_reset(uint8_t*) {
+#ifndef QUEST64_MOD_TEST
+    qs64_fmv_reset();
+#endif
     qs64_extra_reset();
     qs64_progression_reset();
     stats_applied=false;elements_applied=false;arriving.reset();transition.reset();
@@ -145,6 +158,9 @@ extern "C" void qs64_mod_reset(uint8_t*) {
 extern "C" void qs64_mod_tick(uint8_t* ram) {
     if(read<uint16_t>(ram,GameMode)!=1)return;
     qs64_extra_tick(ram);
+#ifndef QUEST64_MOD_TEST
+    qs64_fmv_tick(ram);
+#endif
     if(read<uint16_t>(ram,GameMode)!=1)return;
     apply_stats(ram);
     std::lock_guard lock(request_mutex);

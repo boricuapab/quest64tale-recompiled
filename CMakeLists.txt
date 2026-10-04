@@ -160,8 +160,9 @@ set (SOURCES
     ${CMAKE_SOURCE_DIR}/src/game/scene_table.cpp
     ${CMAKE_SOURCE_DIR}/src/game/debug.cpp
     ${CMAKE_SOURCE_DIR}/src/game/quest64_mods.cpp
-    src/game/quest64_progression.cpp
     ${CMAKE_SOURCE_DIR}/src/game/quest64_extra_mods.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/quest64_progression.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/quest64_fmv.cpp
     ${CMAKE_SOURCE_DIR}/src/game/quicksaving.cpp
     ${CMAKE_SOURCE_DIR}/src/game/recomp_api.cpp
     ${CMAKE_SOURCE_DIR}/src/game/recomp_actor_api.cpp

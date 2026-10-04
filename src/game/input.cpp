@@ -7,6 +7,7 @@
 #include "zelda_config.h"
 #include "recomp_ui.h"
 #include "SDL.h"
+#include "quest64_fmv.h"
 #include "promptfont.h"
 #include "GamepadMotion.hpp"
 
@@ -299,6 +300,7 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
 }
 
 void recomp::handle_events() {
+    quest64::fmv_poll();
     SDL_Event cur_event;
     static bool started = false;
     static bool exited = false;
@@ -735,7 +737,7 @@ void recomp::set_right_analog_suppressed(bool suppressed) {
 
 bool recomp::game_input_disabled() {
     // Disable input if any menu that blocks input is open.
-    return recompui::is_context_capturing_input();
+    return quest64::fmv_blocks_input()||recompui::is_context_capturing_input();
 }
 
 bool recomp::all_input_disabled() {
