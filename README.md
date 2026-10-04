@@ -4,13 +4,13 @@
 
 A native Windows and Linux port of Quest 64 (USA), powered by [N64Recomp](https://github.com/N64Recomp/N64Recomp), [N64ModernRuntime](https://github.com/N64Recomp/N64ModernRuntime), and [RT64](https://github.com/rt64/rt64).
 
-Version **1.0.6** · [Releases](https://github.com/boricuapab/quest64tale-recompiled/releases) · [Mods](https://github.com/boricuapab/quest64tale-recompiled-mods)
+Version **1.0.7** · [Releases](https://github.com/boricuapab/quest64tale-recompiled/releases) · [Mods](https://github.com/boricuapab/quest64tale-recompiled-mods)
 
 This repository and its game release archives contain no ROM, extracted gameplay models/textures, save files or personal settings. Supply your own original USA ROM. The maintainer-selected launcher artwork is included; gameplay assets are loaded from your ROM. Open fonts are fetched during a source build and included in release packages.
 
 ## Getting started
 
-1. Download the Windows or Linux v1.0.6 ZIP and extract it.
+1. Download the Windows or Linux v1.0.7 ZIP and extract it.
 2. Run `Quest64Recompiled.exe` on Windows or `Quest64Recompiled` on Linux.
 3. Select your USA ROM in the launcher, then start the game.
 4. Configure graphics, input bindings and mods in Settings.
@@ -22,7 +22,7 @@ The supported big-endian USA ROM SHA-1 is `91b96e938c6d91699057fad91d726ee5a23ce
 - Native ROM-selection launcher and Controller Pak save support.
 - Graphics resolution, anti-aliasing, aspect-ratio and rendering-rate settings.
 - Keyboard and controller bindings.
-- Independent Maximum Stats, All Spells, Quest 64 Debug Menu and Brian texture-pack support on both platforms.
+- Seven optional packs: Maximum Stats, All Spells, Debug Menu, Brian textures, Auto Save, Random Encounter Rate and Enemy Health Bars on both platforms.
 - Debug map/submap/entrance travel and selection of eight boss encounters.
 - Supplied launcher artwork and executable-relative UI loading.
 
@@ -59,3 +59,6 @@ See [BUILDING.md](BUILDING.md). Dependencies are pinned as Git submodules. Gener
 - PromptFont by Yukari “Shinmera” Hafner, available at https://shinmera.com/promptfont.
 
 Code is GPL-3.0; see [LICENSE](LICENSE). Third-party components retain their own licenses. This is an unofficial fan project.
+
+
+New gameplay packs require v1.0.7. Enable Auto Save to record area checkpoints, then use **Restore Auto Save** in the Mods footer to recover one. Choose encounter frequency under **Random Encounter Rate → Configure**. Enemy health bars appear above visible combat enemies and bosses.

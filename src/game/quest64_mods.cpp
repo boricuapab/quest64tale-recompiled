@@ -1,4 +1,8 @@
 #include "quest64_mods.h"
+extern "C" void qs64_extra_set(const char*,bool);
+extern "C" void qs64_extra_tick(uint8_t*);
+extern "C" void qs64_extra_reset();
+extern "C" void qs64_extra_finish(uint8_t*);
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -74,6 +78,7 @@ const Destination* destination(int map,int submap,int entrance) {
 }
 #ifndef QUEST64_MOD_TEST
 void set_mod(const recomp::mods::ModHandle& mod,bool enabled) {
+    qs64_extra_set(mod.manifest.mod_id.c_str(),enabled);
     if(mod.manifest.mod_id=="qs64_max_stats")max_stats=enabled;
     else if(mod.manifest.mod_id=="qs64_all_spells")all_spells=enabled;
     else if(mod.manifest.mod_id=="qs64_debug_menu") {
@@ -101,6 +106,15 @@ bool quest64::request_warp(int map,int submap,int entrance) {
     if(!debug_menu||!d){status=4;return false;}
     std::lock_guard lock(request_mutex);pending=Warp{*d,-1};status=1;return true;
 }
+bool quest64::valid_area(int map,int submap) {return destination(map,submap,0)!=nullptr;}
+int quest64::nearest_entrance(int map,int submap,float x,float z) {
+    int entrance=-1;float best=1.0e30f;
+    for(const auto& d:destinations)if(d.map==map&&d.submap==submap){
+        const float dx=d.x-x,dz=d.z-z,dist=dx*dx+dz*dz;
+        if(dist<best){best=dist;entrance=d.entrance;}
+    }
+    return entrance;
+}
 bool quest64::request_boss(int boss) {
     if(boss<0||boss>=8||!debug_menu){status=4;return false;}
     const auto* d=destination(bosses[boss].map,bosses[boss].submap,0);
@@ -120,10 +134,13 @@ std::string quest64::debug_status() {
     }
 }
 extern "C" void qs64_mod_reset(uint8_t*) {
+    qs64_extra_reset();
     stats_applied=false;elements_applied=false;pending_boss=-1;transition.reset();
     std::lock_guard lock(request_mutex);pending.reset();status=0;
 }
 extern "C" void qs64_mod_tick(uint8_t* ram) {
+    if(read<uint16_t>(ram,GameMode)!=1)return;
+    qs64_extra_tick(ram);
     if(read<uint16_t>(ram,GameMode)!=1)return;
     apply_stats(ram);
     std::lock_guard lock(request_mutex);
@@ -135,6 +152,7 @@ extern "C" void qs64_mod_tick(uint8_t* ram) {
     }
 }
 extern "C" void qs64_mod_finish_warp(uint8_t* ram) {
+    qs64_extra_finish(ram);
     if(!transition)return;
     const auto warp=*transition;transition.reset();const auto& d=warp.target;
     write<uint32_t>(ram,0x80084EEC,d.map);write<uint32_t>(ram,0x80084EF0,d.submap);

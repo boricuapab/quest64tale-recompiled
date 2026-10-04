@@ -1,3 +1,9 @@
+## 1.0.7
+
+- Add separate transition autosaves with recovery from the Mods footer.
+- Add five selectable random encounter rates without disabling bosses.
+- Add overhead enemy and boss health bars.
+
 ## 1.0.6
 
 - Restore Brian's moving ground shadow from joint matrix attachment coordinates.

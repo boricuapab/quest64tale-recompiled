@@ -51,3 +51,29 @@ before_vram = 0x80024690
 func = "dma_write"
 text = "load_overlays(ctx->r4, ctx->r5, ctx->r6);"
 before_vram = 0x80024260
+
+[[patches.hook]]
+func = "func_8001C5F4"
+before_vram = 0x8001C630
+text = "extern float qs64_encounter_step(float); ctx->f0.fl = qs64_encounter_step(ctx->f0.fl);"
+
+[[patches.hook]]
+func = "func_80001800"
+before_vram = 0x80001800
+text = "extern void qs64_zone_begin(uint8_t*); qs64_zone_begin(rdram);"
+
+[[patches.hook]]
+func = "func_8001E25C"
+before_vram = 0x8001E25C
+text = "extern void qs64_health_begin(void); qs64_health_begin();"
+
+
+[[patches.hook]]
+func = "func_8001E25C"
+before_vram = 0x8001E7F4
+text = "extern void qs64_health_collect(uint8_t*); extern void qs64_health_draw(uint8_t*); qs64_health_collect(rdram); qs64_health_draw(rdram);"
+
+[[patches.hook]]
+func = "func_80002918"
+before_vram = 0x80002918
+text = "extern void qs64_restore_spawn(uint8_t*); qs64_restore_spawn(rdram);"

@@ -103,6 +103,7 @@ private:
     Button *install_mods_button = nullptr;
     Button *refresh_button = nullptr;
     Button *mods_folder_button = nullptr;
+    Button *autosave_button = nullptr;
     int32_t active_mod_index = -1;
     std::vector<ModEntryButton *> mod_entry_buttons;
     std::vector<ModEntrySpacer *> mod_entry_spacers;

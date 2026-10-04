@@ -3,6 +3,7 @@
 #include "recomp_ui.h"
 #include "zelda_support.h"
 #include "zelda_render.h"
+#include "quest64_mods.h"
 
 #include "librecomp/mods.hpp"
 
@@ -610,6 +611,7 @@ void ModMenu::create_mod_list() {
 
 void ModMenu::process_event(const Event &e) {
     if (e.type == EventType::Update) {
+        autosave_button->set_display(quest64::autosave_enabled() ? Display::Flex : Display::None);
         if (mods_dirty) {
             refresh_mods(mod_scan_queued);
             mods_dirty = false;
@@ -687,6 +689,12 @@ ModMenu::ModMenu(Element *parent) : Element(parent) {
             Button* configure_button = mod_details_panel->get_configure_button();
             install_mods_button = context.create_element<Button>(footer_container, "Install Mods", recompui::ButtonStyle::Primary);
             install_mods_button->add_pressed_callback([this](){ open_install_dialog(); });
+            autosave_button = context.create_element<Button>(footer_container, "Restore Auto Save", recompui::ButtonStyle::Primary);
+            autosave_button->add_pressed_callback([](){
+                quest64::request_autosave_restore();
+                recompui::message_box(quest64::autosave_status().c_str());
+            });
+            autosave_button->set_nav_manual(NavDirection::Up, mod_tab_id);
 
             Element* footer_spacer = context.create_element<Element>(footer_container);
             footer_spacer->set_flex(1.0f, 0.0f);
