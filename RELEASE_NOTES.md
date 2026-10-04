@@ -1,7 +1,7 @@
-# Quest 64 Tale: Recompiled v1.0.5
+# Quest 64 Tale: Recompiled v1.0.6
 
-Windows and Linux releases include the same source changes and four mod handlers. Install the separate mod packs through the Mods menu. Supply your own original USA ROM at launch.
+Fixes Brian's detached or missing ground shadow by restoring attachment coordinates from the completed joint matrix. Retains native shadow depth handling to avoid the previous shadow flicker regression.
 
-The supplied launcher artwork and open UI resources are included. ROMs, extracted game models/textures, mod packs, save data and personal settings are excluded from game ZIPs.
+Fixes Brian's running hair jitter at higher rendering framerates through stable per-part matrix interpolation. These fixes have been confirmed in the Windows render test and are included in both platform builds.
 
-This release includes rendering adjustments for Brian's shadow and dark-material flicker; their appearance still requires in-game confirmation. Debug travel bypasses movement between areas rather than completing all preceding quest events.
+Windows and Linux support the same four mods. Existing v1.0.5 mod packs remain compatible. Supply your own original USA ROM. Game ZIPs exclude ROMs, extracted gameplay assets, saves, personal settings and mod packs.

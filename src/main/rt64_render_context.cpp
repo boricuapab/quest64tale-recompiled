@@ -2,9 +2,14 @@
 #include <cstring>
 #include <variant>
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
 
 #define HLSL_CPU
 #include "hle/rt64_application.h"
+#include "gbi/rt64_gbi_f3d.h"
+#include "gbi/rt64_gbi_f3dex.h"
 #include "rt64_render_hooks.h"
 #include "overloaded.h"
 
@@ -21,6 +26,108 @@ static bool high_precision_fb_enabled = false;
 
 static uint8_t DMEM[0x1000];
 static uint8_t IMEM[0x1000];
+
+// Brian's model table supplies stable part identities. RT64's automatic
+// matching can pair the thin, similar hair polygons with another transform.
+// Tag the model lists, without changing the original matrices or vertices.
+namespace {
+thread_local std::vector<size_t> brian_group_depths;
+thread_local unsigned brian_part_count = 0, shadow_quad_count = 0;
+bool shadow_depth_diagnostic() {
+    static const bool enabled = std::getenv("QUEST64_SHADOW_DEPTH_DIAGNOSTIC") != nullptr;
+    return enabled;
+}
+
+uint32_t rdram_word(RT64::State* state, uint32_t offset) {
+    uint32_t value;
+    std::memcpy(&value, state->fromRDRAM(offset), sizeof(value));
+    return value;
+}
+
+void quest64_model_list(RT64::State* state, RT64::DisplayList** dl) {
+    const uint32_t address = state->rsp->fromSegmentedMasked((*dl)->w1);
+    const bool call = (*dl)->p0(16, 1) == 0;
+    int part = -1;
+    // Verify the loaded Brian bank before interpreting its model table.
+    if (call && rdram_word(state, 0x20606C) == 0x80206000) {
+        for (int i = 0; i < 32; ++i) {
+            const uint32_t entry = rdram_word(state, 0x206000 + i * 4);
+            if (entry == 0) break;
+            if ((entry & 0x7FFFFF) == address) { part = i; break; }
+        }
+    }
+    if (part >= 0) {
+        ++brian_part_count;
+        // Component-wise matrix interpolation preserves the native shear and
+        // signed scale without introducing quaternion decomposition choices.
+        state->rsp->matrixId(0xB1000000U + part, true, false, false,
+            G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE,
+            G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE,
+            G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP,
+            G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP,
+            G_EX_ORDER_LINEAR, G_EX_ASPECT_AUTO, G_EX_EDIT_NONE, false, false);
+        state->rsp->modelViewProjChanged = true;
+    }
+    RT64::GBI_F3D::runDl(state, dl);
+    if (part >= 0) brian_group_depths.push_back(state->returnAddressStack.size());
+}
+
+void quest64_end_list(RT64::State* state, RT64::DisplayList** dl) {
+    if (!brian_group_depths.empty() &&
+        brian_group_depths.back() == state->returnAddressStack.size()) {
+        state->rsp->popMatrixId(1, false);
+        state->rsp->modelViewProjChanged = true;
+        brian_group_depths.pop_back();
+    }
+    RT64::GBI_F3D::endDl(state, dl);
+}
+
+void quest64_vertex(RT64::State* state, RT64::DisplayList** dl) {
+    if (state->rsp->fromSegmentedMasked((*dl)->w1) == 0x96A80) ++shadow_quad_count;
+    RT64::GBI_F3DEX::vertex(state, dl);
+}
+
+void quest64_render_mode(RT64::State* state, RT64::DisplayList** dl) {
+    if (shadow_depth_diagnostic() && (*dl)->w0 == 0xB900031D &&
+        (*dl)->w1 == 0xC8104E50 &&
+        reinterpret_cast<uint8_t*>(*dl) == state->fromRDRAM(0x96AF8)) {
+        // Diagnostic only: distinguish depth rejection from absent/culled
+        // geometry. Preserve blending, and never change the game's RDRAM.
+        auto command = **dl;
+        command.w1 &= ~(0xC00U | 0x10U);
+        auto* local = &command;
+        RT64::GBI_F3D::setOtherModeL(state, &local);
+        return;
+    }
+    RT64::GBI_F3D::setOtherModeL(state, dl);
+}
+
+void trace_quest64_frame(RT64::State* state) {
+    // Opt-in diagnostics for comparing native shadow submission and rendered
+    // geometry. No ROM bytes, texture pixels, or machine paths are recorded.
+    static FILE* trace = std::getenv("QUEST64_RENDER_TRACE") ?
+        std::fopen("quest64-render-trace.csv", "w") : nullptr;
+    static unsigned frame = 0;
+    if (!trace || (++frame % 30) != 0) return;
+    if (frame == 30) std::fprintf(trace,"frame,brian_parts,shadow_quads,queued_shadows,nearest_shadow_distance,native_shadow_mode,remaining_part_groups,shadow_depth_bypass\n");
+    auto read_float = [state](uint32_t offset) {
+        const uint32_t word = rdram_word(state, offset);
+        float value; std::memcpy(&value, &word, sizeof(value)); return value;
+    };
+    const uint32_t count = rdram_word(state, 0x862D0);
+    const float px = read_float(0x7BACC), pz = read_float(0x7BAD4);
+    float nearest = -1.0f;
+    if (count <= 64) for (uint32_t i = 0; i < count; ++i) {
+        const float dx = read_float(0x85BD0 + i * 28) - px;
+        const float dz = read_float(0x85BD8 + i * 28) - pz;
+        const float distance = std::sqrt(dx * dx + dz * dz);
+        if (nearest < 0 || distance < nearest) nearest = distance;
+    }
+    std::fprintf(trace,"%u,%u,%u,%u,%.6f,%08X,%zu,%d\n",frame,brian_part_count,
+        shadow_quad_count,count,nearest,rdram_word(state,0x96AFC),brian_group_depths.size(),shadow_depth_diagnostic());
+    std::fflush(trace);
+}
+}
 
 struct TexturePackEnableAction {
     std::string mod_id;
@@ -265,8 +372,7 @@ zelda64::renderer::RT64Context::RT64Context(uint8_t* rdram, ultramodern::rendere
     app->userConfig.developerMode = debug;
     // Force gbi depth branches to prevent LODs from kicking in.
     app->enhancementConfig.f3dex.forceBranch = true;
-    // Quest 64's dark hair should not receive the template's additional
-    // frame-varying post-blend noise, which becomes conspicuous at 60 Hz.
+    // Avoid adding post-blend noise beyond the game's native dithering.
     app->emulatorConfig.dither.postBlendNoise = false;
     app->emulatorConfig.dither.postBlendNoiseNegative = false;
     // Scale LODs based on the output resolution.
@@ -324,21 +430,19 @@ zelda64::renderer::RT64Context::~RT64Context() = default;
 
 void zelda64::renderer::RT64Context::send_dl(const OSTask* task) {
     check_texture_pack_actions();
-    // The original blob-shadow list uses ZMODE_DEC. RT64's coplanar-only
-    // decal test can reject Quest 64's ground-following, slightly offset
-    // shadow quads. Use translucent depth comparison for this exact list,
-    // retaining its blend, depth-test and no-depth-write flags.
-    // Common graphics bank: ROM 0x73A90 -> CPU 0x80096850, DL +0x270.
-    uint32_t shadow_command = 0, shadow_mode = 0;
-    std::memcpy(&shadow_command, app->core.RDRAM + 0x96AF8, sizeof(shadow_command));
-    std::memcpy(&shadow_mode, app->core.RDRAM + 0x96AFC, sizeof(shadow_mode));
-    if (shadow_command == 0xB900031D && shadow_mode == 0xC8104E50) {
-        shadow_mode = 0xC8104A50;
-        std::memcpy(app->core.RDRAM + 0x96AFC, &shadow_mode, sizeof(shadow_mode));
-    }
     app->state->rsp->reset();
     app->interpreter->loadUCodeGBI(task->t.ucode & 0x3FFFFFF, task->t.ucode_data & 0x3FFFFFF, true);
+    brian_group_depths.clear();
+    brian_part_count = shadow_quad_count = 0;
+    auto* gbi = app->interpreter->hleGBI;
+    if (gbi->ucode == RT64::GBIUCode::F3DEX) {
+        gbi->map[0x06] = quest64_model_list;
+        gbi->map[0xB8] = quest64_end_list;
+        gbi->map[0x04] = quest64_vertex;
+        gbi->map[0xB9] = quest64_render_mode;
+    }
     app->processDisplayLists(app->core.RDRAM, task->t.data_ptr & 0x3FFFFFF, 0, true);
+    trace_quest64_frame(app->state.get());
 }
 
 void zelda64::renderer::RT64Context::update_screen() {

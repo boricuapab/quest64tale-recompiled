@@ -1,3 +1,10 @@
+## 1.0.6
+
+- Restore Brian's moving ground shadow from joint matrix attachment coordinates.
+- Fix running hair interpolation at higher rendering framerates.
+- Restore native blob-shadow depth behavior.
+- Keep all four existing mods supported on Windows and Linux.
+
 # Changelog
 
 ## 1.0.5

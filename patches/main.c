@@ -244,19 +244,24 @@ RECOMP_PATCH void func_8001DC78(MtxF* arg0, Vec3f arg1, s32 arg4, s32 arg5, s32 
     arg1.x *= sp7C.unk_18;
     arg1.y *= sp7C.unk_1C;
     arg1.z *= sp7C.unk_20;
+    func_80023E80(arg0, &spA0, &spA0);
+    // In the original function, sp+0xD0 aliases row 3 of the matrix at
+    // sp+0xA0. The decompiled patch incorrectly made it a separate,
+    // uninitialized Vec3f, leaving attachment and shadow positions stale.
+    spD0.x = spA0.mf[3][0];
+    spD0.y = spA0.mf[3][1];
+    spD0.z = spA0.mf[3][2];
     if (temp_s2->unk_16 & 1) {
-        func_80023E80(arg0, &spA0, &spA0);
         func_8002371C(&D_8008C5E8, spD0.x, spD0.y, spD0.z, D_80086DC0.unk_0C, D_80086DC0.unk_10, D_80086DC0.unk_14);
         func_80023DF4(&D_8008C5E8, arg1.x, arg1.y, arg1.z);
         guMtxF2L(&D_8008C5E8, arg10 + 3 + D_8007B2F8);
     } else {
-        func_80023E80(arg0, &spA0, &spA0);
         guMtxF2L(&spA0, arg10 + 3 + D_8007B2F8);
     }
     gSPMatrix(gMasterGfxPos++, D_2000000 + 3 + D_8007B2F8, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     D_8007B2F8++;
     var_s0 = arg9;
-    if (temp_s2->unk_16 & 2) {\
+    if (temp_s2->unk_16 & 2) {
         D_8008C5B0[D_8008C5E0].x = spD0.x;
         D_8008C5B0[D_8008C5E0].y = spD0.y;
         D_8008C5B0[D_8008C5E0].z = spD0.z;

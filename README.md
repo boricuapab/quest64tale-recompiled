@@ -4,13 +4,13 @@
 
 A native Windows and Linux port of Quest 64 (USA), powered by [N64Recomp](https://github.com/N64Recomp/N64Recomp), [N64ModernRuntime](https://github.com/N64Recomp/N64ModernRuntime), and [RT64](https://github.com/rt64/rt64).
 
-Version **1.0.5** · [Releases](https://github.com/boricuapab/quest64tale-recompiled/releases) · [Mods](https://github.com/boricuapab/quest64tale-recompiled-mods)
+Version **1.0.6** · [Releases](https://github.com/boricuapab/quest64tale-recompiled/releases) · [Mods](https://github.com/boricuapab/quest64tale-recompiled-mods)
 
 This repository and its game release archives contain no ROM, extracted gameplay models/textures, save files or personal settings. Supply your own original USA ROM. The maintainer-selected launcher artwork is included; gameplay assets are loaded from your ROM. Open fonts are fetched during a source build and included in release packages.
 
 ## Getting started
 
-1. Download the Windows or Linux v1.0.5 ZIP and extract it.
+1. Download the Windows or Linux v1.0.6 ZIP and extract it.
 2. Run `Quest64Recompiled.exe` on Windows or `Quest64Recompiled` on Linux.
 3. Select your USA ROM in the launcher, then start the game.
 4. Configure graphics, input bindings and mods in Settings.
