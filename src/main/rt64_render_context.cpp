@@ -38,11 +38,20 @@ thread_local unsigned brian_part_count = 0, shadow_quad_count = 0;
 thread_local int quest64_hud_mode=0;
 void quest64_noop(RT64::State* state,RT64::DisplayList** dl){
     if((*dl)->w1==0x51455854){state->extended.extendRDRAM=true;return;}
+    const int previous_mode=quest64_hud_mode;
     if((*dl)->w1==0x51485544)quest64_hud_mode=1;
     else if((*dl)->w1==0x514C4546)quest64_hud_mode=2;
     else if((*dl)->w1==0x51524947)quest64_hud_mode=3;
     else if((*dl)->w1==0x51574F52)quest64_hud_mode=0;
     else return;
+    // Geometry in the right-anchored compass needs the same expanded scissor
+    // as its texture rectangles, rather than the centered 4:3 world scissor.
+    if(previous_mode==3&&quest64_hud_mode!=3)state->rdp->popScissor();
+    if(previous_mode!=3&&quest64_hud_mode==3){
+        RT64::ExtendedAlignment scissor;
+        scissor.leftOrigin=G_EX_ORIGIN_LEFT;scissor.rightOrigin=G_EX_ORIGIN_RIGHT;scissor.rightOffset=-320*4;
+        state->rdp->pushScissor();state->rdp->setScissor(0,0,0,320*4,240*4,scissor);
+    }
     // The compass needle is geometry; give it the same origin as its sprites.
     state->rsp->extended.viewportOrigin=quest64_hud_mode==3?G_EX_ORIGIN_RIGHT:G_EX_ORIGIN_NONE;
     state->rsp->viewportChanged=true;

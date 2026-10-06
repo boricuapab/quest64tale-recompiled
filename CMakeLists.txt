@@ -5,6 +5,13 @@ if (APPLE)
 endif()
 
 project(Quest64Recompiled LANGUAGES C CXX)
+# Keep Quest 64 runtime adaptations in this repository, outside submodule Git links.
+foreach(runtime_file IN ITEMS include/librecomp/pak_storage.hpp include/librecomp/mods.hpp src/pak.cpp src/recomp.cpp)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/runtime-overrides/librecomp/${runtime_file}")
+        configure_file("${CMAKE_SOURCE_DIR}/runtime-overrides/librecomp/${runtime_file}"
+                       "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/librecomp/${runtime_file}" COPYONLY)
+    endif()
+endforeach()
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -426,3 +433,4 @@ target_sources(Quest64Recompiled PRIVATE ${GENERATED_NRM_SOURCES})
 target_sources(Quest64Recompiled PRIVATE ${SOURCES})
 
 set_property(TARGET Quest64Recompiled PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+

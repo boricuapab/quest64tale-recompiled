@@ -9,6 +9,7 @@
 #include <cinttypes>
 #include "quest64_mods.h"
 #include "quest64_fmv.h"
+#include "librecomp/pak_storage.hpp"
 
 #include "nfd.h"
 
@@ -58,14 +59,14 @@
 
 #include "../../lib/rt64/src/contrib/stb/stb_image.h"
 
-const std::string version_string = "1.0.9";
+const std::string version_string = "1.1.1";
 
 template<typename... Ts>
 void exit_error(const char* str, Ts ...args) {
     // TODO pop up an error
     ((void)fprintf(stderr, str, args), ...);
     assert(false);
-
+        
     ultramodern::error_handling::quick_exit(__FILE__, __LINE__, __FUNCTION__);
 }
 
@@ -121,7 +122,7 @@ bool SetImageAsIcon(const char* filename, SDL_Window* window)
                             Bmask, Amask);
     }
 
-    if (surface == nullptr) {
+    if (surface == nullptr) {   
         if (data != nullptr) {
             stbi_image_free(data);
         }
@@ -211,7 +212,7 @@ void queue_samples(int16_t* audio_data, size_t sample_count) {
     if (max_sample_count > swap_buffer.size()) {
         swap_buffer.resize(max_sample_count);
     }
-
+    
     // Copy the duplicated frames from last chunk into this chunk
     for (size_t i = 0; i < duplicated_input_frames * input_channels; i++) {
         swap_buffer[i] = duplicated_sample_buffer[i];
@@ -225,7 +226,7 @@ void queue_samples(int16_t* audio_data, size_t sample_count) {
         swap_buffer[i + 0 + duplicated_input_frames * input_channels] = audio_data[i + 1] * (1.0f / 32768.0f) * cur_main_volume;
         swap_buffer[i + 1 + duplicated_input_frames * input_channels] = audio_data[i + 0] * (1.0f / 32768.0f) * cur_main_volume;
     }
-
+    
     // TODO handle cases where a chunk is smaller than the duplicated frame count.
     assert(sample_count > duplicated_input_frames * input_channels);
 
@@ -233,7 +234,7 @@ void queue_samples(int16_t* audio_data, size_t sample_count) {
     for (size_t i = 0; i < duplicated_input_frames * input_channels; i++) {
         duplicated_sample_buffer[i] = swap_buffer[i + sample_count];
     }
-
+    
     audio_convert.buf = reinterpret_cast<Uint8*>(swap_buffer.data());
     audio_convert.len = (sample_count + duplicated_input_frames * input_channels) * sizeof(swap_buffer[0]);
 
@@ -302,7 +303,7 @@ void update_audio_converter() {
 
 void set_frequency(uint32_t freq) {
     sample_rate = freq;
-
+    
     update_audio_converter();
 }
 
@@ -528,7 +529,7 @@ bool preload_executable(PreloadContext& context) {
         context = {};
         return false;
     }
-
+    
     return true;
 }
 
@@ -593,7 +594,7 @@ int main(int argc, char** argv) {
     timeBeginPeriod(1);
 
     // Process arguments.
-
+    
     // Set up console output to accept UTF-8 on windows
     SetConsoleOutputCP(CP_UTF8);
 
@@ -636,6 +637,8 @@ int main(int argc, char** argv) {
     }
 
     recomp::register_config_path(zelda64::get_app_folder_path());
+    recomp::mods::set_mods_directory(zelda64::get_program_path()/"mods");
+    recomp::pak_storage::configure(zelda64::get_profile_folder_path(),zelda64::get_program_path());
 
     // Register supported games and patches
     for (const auto& game : supported_games) {
@@ -738,11 +741,12 @@ int main(int argc, char** argv) {
     if (preloaded) {
         release_preload(preload_context);
     }
-
+    
     #ifdef _WIN32
     // End high resolution timing period.
     timeEndPeriod(1);
     #endif
-
+    
     return EXIT_SUCCESS;
 }
+

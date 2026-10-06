@@ -145,6 +145,11 @@ std::filesystem::path zelda64::get_app_folder_path() {
    }
 #endif
 
+   return get_profile_folder_path();
+}
+
+std::filesystem::path zelda64::get_profile_folder_path() {
+
    std::filesystem::path recomp_dir{};
 
 #if defined(_WIN32)

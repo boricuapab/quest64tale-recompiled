@@ -312,7 +312,7 @@ int choose_enemy(uint8_t* ram,bool cycle){
         for(int j=1;j<=6;j++){int i=(locked_enemy+j)%6;if(living_enemy(ram,i))return i;}
     }
     int best=-1;float score=1e30f;
-    const float facing=rd<float>(ram,Actor+12);
+    const float facing=rd<float>(ram,Actor+16);
     for(int i=0;i<6;i++)if(living_enemy(ram,i)){
         auto e=enemy_position(ram,i);
         float dx=e[0]-rd<float>(ram,Actor),dz=e[2]-rd<float>(ram,Actor+8);
@@ -321,6 +321,54 @@ int choose_enemy(uint8_t* ram,bool cycle){
         if(std::isfinite(value)&&value<score){best=i;score=value;}
     }
     return best;
+}
+int elemental_percent(uint8_t* ram,uint32_t spell,uint32_t enemy){
+    if(rd<uint16_t>(ram,spell+2)&0x8000)return 100;
+    const auto model=rd<uint32_t>(ram,enemy-4); // EnemyAction.monBaseData
+    if(!pointer(model,0x38))return 100;
+    unsigned a=rd<uint8_t>(ram,spell+6),b=rd<uint16_t>(ram,model+0x26);
+    if(a>=4||b>=4)return 100;
+    unsigned pair=(1u<<a)|(1u<<b);
+    if(pair==1||pair==2||pair==4||pair==8)return 50;
+    return pair==5||pair==10?125:100;
+}
+unsigned spell_power(uint8_t* ram,uint32_t spell,uint32_t status){
+    unsigned element=rd<uint8_t>(ram,spell+6);if(element>=4)return 0;
+    // Match the native elemental-growth weights and floating-point rounding.
+    unsigned level=rd<uint8_t>(ram,Player+0x24+element);
+    for(int i=0;i<3;i++){
+        unsigned other=rd<uint16_t>(ram,0x8004CDD0+element*4+i*2);
+        if(other>=4)return 0;
+        level+=rd<uint8_t>(ram,Player+0x24+other)>>(i==0?4:3);
+    }
+    float power=float(rd<uint16_t>(ram,spell+12)*.02);
+    float increment=float(double(power)*.2);
+    for(unsigned i=0;i<level;i++){power+=increment;increment=float(double(increment)*1.03);}
+    unsigned value=unsigned(std::max(0.f,power))&65535;
+    if(rd<uint16_t>(ram,status)&1)value>>=1;
+    return value;
+}
+unsigned staff_power(uint8_t* ram,uint32_t status){
+    unsigned base=rd<uint16_t>(ram,status+0x104),quarter=base>>2,total=base;
+    for(int i=0;i<4;i++){unsigned level=rd<uint8_t>(ram,Player+0x24+i);if(level>quarter)total=(total-level+quarter)&65535;}
+    unsigned value=(((total+(base>>1))&65535)*rd<uint16_t>(ram,status+0x10A)>>4)&65535;
+    if(rd<uint16_t>(ram,status+0x80)&1)value>>=1;
+    return value;
+}
+std::array<unsigned,2> damage_bounds(uint8_t* ram,uint32_t status,uint32_t enemy,unsigned power,int percent){
+    if(percent==50)power>>=1;else if(percent==125)power=(power+(power>>2))&65535;
+    unsigned attack=rd<uint16_t>(ram,status+0x84),defense=rd<uint16_t>(ram,enemy-0x24+0x118);
+    unsigned low=attack+defense?unsigned(float(power)*float(attack)/float(attack+defense)):0;
+    unsigned high=low+unsigned(std::sqrt(float(low)));low=std::max(1u,low);high=std::max(1u,high);
+    return {low,high};
+}
+std::string damage_preview(uint8_t* ram,uint32_t status,uint32_t enemy,unsigned power,int percent){
+    const auto bounds=damage_bounds(ram,status,enemy,power,percent);
+    const unsigned low=bounds[0],high=bounds[1];
+    unsigned hp=rd<uint16_t>(ram,enemy-0x18);
+    if(!hp)return "DMG UNKNOWN";
+    auto pct=[&](unsigned value){return std::min(100u,(value*100+hp/2)/hp);};
+    return "DMG "+std::to_string(low)+"-"+std::to_string(high)+" / "+std::to_string(pct(low))+"-"+std::to_string(pct(high))+"% HP";
 }
 // An extruded arrow mesh in world space. Perspective-project its 14 vertices
 // and depth-sort its shaded surfaces into the HUD overlay. This keeps a route
@@ -343,6 +391,15 @@ void arrow_mesh(Hud& hud,uint8_t* ram,float x,float y,float z,float dx,float dz,
         vertices[i]={160-150*v[0]/(v[2]*projection),120+120*v[1]/(v[2]*projection),-1/v[2]};
         if(!std::isfinite(vertices[i].x)||!std::isfinite(vertices[i].y))return;
     }
+    // Keep the complete marker inside the cleared viewport, including close
+    // camera positions where its world-space height projects above the screen.
+    float left=320,right=0,top=240,bottom=0;
+    for(auto v:vertices){left=std::min(left,v.x);right=std::max(right,v.x);top=std::min(top,v.y);bottom=std::max(bottom,v.y);}
+    const float fit=std::min({1.f,288.f/std::max(1.f,right-left),200.f/std::max(1.f,bottom-top)});
+    float cx=(left+right)*.5f,cy=(top+bottom)*.5f;
+    float safe_x=std::clamp(cx,16+(right-left)*fit*.5f,304-(right-left)*fit*.5f);
+    float safe_y=std::clamp(cy,20+(bottom-top)*fit*.5f,220-(bottom-top)*fit*.5f);
+    for(auto& v:vertices){v.x=safe_x+(v.x-cx)*fit;v.y=safe_y+(v.y-cy)*fit;}
     std::vector<float> depth(320*240,0);std::vector<uint16_t> pixels(320*240,0);
     auto triangle=[&](int ia,int ib,int ic,uint16_t color){
         auto a=vertices[ia],b=vertices[ib],c=vertices[ic];
@@ -371,6 +428,10 @@ void arrow_mesh(Hud& hud,uint8_t* ram,float x,float y,float z,float dx,float dz,
     }
 }
 #ifdef QUEST64_MOD_TEST
+extern "C" PROGRESS_EXPORT unsigned qs64_test_spell_power(uint8_t* ram,uint32_t spell,uint32_t status){return spell_power(ram,spell,status);}
+extern "C" PROGRESS_EXPORT unsigned qs64_test_staff_power(uint8_t* ram,uint32_t status){return staff_power(ram,status);}
+extern "C" PROGRESS_EXPORT int qs64_test_effectiveness(uint8_t* ram,uint32_t spell,uint32_t enemy){return elemental_percent(ram,spell,enemy);}
+extern "C" PROGRESS_EXPORT uint64_t qs64_test_damage_bounds(uint8_t* ram,uint32_t status,uint32_t enemy,unsigned power,int percent){auto b=damage_bounds(ram,status,enemy,power,percent);return uint64_t(b[0])|(uint64_t(b[1])<<32);}
 float test_x=0,test_y=0;
 float test_hud_aspect=4.f/3.f;
 #endif
@@ -474,7 +535,9 @@ extern "C" PROGRESS_EXPORT void qs64_lock_attack(uint8_t* ram){
     if(locked_enemy<0)return;
     auto e=enemy_position(ram,locked_enemy);
     float angle=std::atan2(e[0]-rd<float>(ram,Actor),e[2]-rd<float>(ram,Actor+8));
-    if(std::isfinite(angle))wr<float>(ram,Actor+12,angle);
+    // PosRot stores X, Y, Z rotation in that order. Lock-on changes heading,
+    // never the X rotation used by Brian's attack and damage animations.
+    if(std::isfinite(angle))wr<float>(ram,Actor+16,angle);
 }
 extern "C" PROGRESS_EXPORT void qs64_movement_begin(uint8_t* ram){
     movement_restore=false;if(!orbit||!playing(ram))return;
@@ -560,13 +623,17 @@ extern "C" PROGRESS_EXPORT void qs64_camera_begin(uint8_t* ram){
     actual_radius=safe<actual_radius?safe:std::min(safe,actual_radius+(desired_radius-actual_radius)*0.15f);
     const float values[]={tx+direction[0]*actual_radius,ty+direction[1]*actual_radius,tz+direction[2]*actual_radius,tx,ty,tz};
     for(int i=0;i<6;i++)wr<float>(ram,0x80086DCC+4*i,values[i]);restore_camera=true;
-    view_heading=std::atan2(tx-values[0],tz-values[2]);wr<float>(ram,0x80086DEC,view_heading);
+    view_heading=std::atan2(tx-values[0],tz-values[2]);
+    // Native billboard orientation and angular culling use target-to-eye yaw.
+    // Movement uses eye-to-target heading, which differs by half a turn.
+    wr<float>(ram,0x80086DEC,std::atan2(values[0]-tx,values[2]-tz));
 }
 extern "C" PROGRESS_EXPORT void qs64_camera_end(uint8_t* ram){
     if(!restore_camera)return;
     for(int i=0;i<6;i++)wr<float>(ram,0x80086DCC+4*i,original_camera[i]);restore_camera=false;
     wr<float>(ram,0x80086DEC,original_yaw);
 }
+extern "C" PROGRESS_EXPORT int qs64_free_camera_rendering(){return restore_camera?1:0;}
 extern "C" PROGRESS_EXPORT void qs64_progression_draw(uint8_t* ram){
     if((!experience_on&&!arrow_on&&!spirits_on&&!spell_preview_on&&locked_enemy<0&&!battle_paused)||!playing(ram))return;
     uint32_t p=rd<uint32_t>(ram,0x8007B2FC);if(p<0x80000000||p>0x807F8000)return;
@@ -593,6 +660,59 @@ extern "C" PROGRESS_EXPORT void qs64_progression_draw(uint8_t* ram){
     const float panel_scale=1.f;
     const int bar_width=aspect>1.5f?70:82;
     hud.scale=panel_scale;
+    hud.emit(0,0x514C4546);
+    if(spell_preview_on&&!battle_paused&&(rd<uint16_t>(ram,0x8008C592)&1)){
+        const auto status=rd<uint32_t>(ram,Actor+0x68);
+        uint32_t spell=0;
+        if(status>=0x80000000&&status<=0x807FFE00){
+            const int count=rd<uint16_t>(ram,status+0x11C);
+            if(count>=1&&count<=3){
+                std::array<uint8_t,3> elements{};
+                for(int i=0;i<count;i++)elements[i]=rd<uint8_t>(ram,status+0x119+i);
+                if(count==3&&elements[2]<elements[1])std::swap(elements[1],elements[2]);
+                if(elements[0]<4){
+                    const auto table=rd<uint32_t>(ram,0x800C1B14+elements[0]*4);
+                    if(table>=0x80000000&&table<=0x807FFB00){
+                    // The native selector falls back to the first spell for an unmatched combination.
+                    spell=table;
+                    for(int i=0;i<15;i++){
+                        const auto entry=table+i*0x44;
+                        if(rd<uint16_t>(ram,entry+4)!=count)continue;
+                        bool match=true;for(int k=0;k<count;k++)match&=rd<uint8_t>(ram,entry+6+k)==elements[k];
+                        if(match){spell=entry;break;}
+                    }
+                    }
+                }
+            }
+        }
+        hud.emit(0,0x51524947);
+        hud.rect(184,174,128,46,0x1085);
+        hud.text(187,177,spell?"SPELL PREVIEW":"SELECT AN ELEMENT",0xFFFF);
+        const uint32_t enemy=living_enemy(ram,locked_enemy)?0x8007C9BC+locked_enemy*0x128:0;
+        if(spell){
+            const float radius=rd<float>(ram,spell+0x1C);
+            if(std::isfinite(radius)&&radius>=0&&radius<10000){
+                std::string effect="NO TARGET";
+                float distance=0;
+                if(enemy){
+                    distance=std::hypot(rd<float>(ram,enemy)-rd<float>(ram,Actor),rd<float>(ram,enemy+8)-rd<float>(ram,Actor+8));
+                    const int percent=elemental_percent(ram,spell,enemy);
+                    effect=percent==50?"NOT VERY EFFECTIVE 50%":percent==125?"SUPER EFFECTIVE 125%":"EFFECTIVE 100%";
+                }
+                if(rd<uint16_t>(ram,spell+0x18)==2)effect="SUPPORT SPELL";
+                hud.text(187,184,effect,0xFFC1);
+                hud.text(187,191,"RANGE "+std::to_string(int(std::round(radius)))+" DIST "+std::to_string(int(std::round(distance))),0xFFFF);
+                if(enemy&&rd<uint16_t>(ram,spell+0x18)!=2)
+                    hud.text(187,198,damage_preview(ram,status,enemy,spell_power(ram,spell,status),elemental_percent(ram,spell,enemy)),0xFFFF);
+            }
+        }
+        if(enemy&&pointer(status,0x120)){
+            // The native target selector admits staff targets only in reach.
+            const bool staff_ready=rd<uint16_t>(ram,status+2)==locked_enemy+1;
+            hud.text(187,205,staff_ready?"STAFF "+damage_preview(ram,status,enemy,staff_power(ram,status),100).substr(4):"STAFF OUT OF REACH",0xFFFF);
+        }
+        hud.emit(0,0x51574F52);
+    }
     hud.emit(0,0x514C4546);
     if(experience_on&&!battle_paused){
         hud.rect(8,76,bar_width+8,67,0x1085);
@@ -630,56 +750,6 @@ extern "C" PROGRESS_EXPORT void qs64_progression_draw(uint8_t* ram){
     }
     hud.scale=1;
     hud.emit(0,0x51574F52);
-    if(spell_preview_on&&!battle_paused&&(rd<uint16_t>(ram,0x8008C592)&1)){
-        const auto status=rd<uint32_t>(ram,Actor+0x68);
-        uint32_t spell=0;
-        if(status>=0x80000000&&status<=0x807FFE00){
-            const int count=rd<uint8_t>(ram,status+0x11C);
-            if(count>=1&&count<=3){
-                std::array<uint8_t,3> elements{};
-                for(int i=0;i<count;i++)elements[i]=rd<uint8_t>(ram,status+0x119+i);
-                if(count==3&&elements[2]<elements[1])std::swap(elements[1],elements[2]);
-                if(elements[0]<4){
-                    const auto table=rd<uint32_t>(ram,0x800C1B14+elements[0]*4);
-                    if(table>=0x80000000&&table<=0x807FFB00)for(int i=0;i<15;i++){
-                        const auto entry=table+i*0x44;
-                        if(rd<uint16_t>(ram,entry+4)!=count)continue;
-                        bool match=true;for(int k=0;k<count;k++)match&=rd<uint8_t>(ram,entry+6+k)==elements[k];
-                        if(match){spell=entry;break;}
-                    }
-                }
-            }
-        }
-        if(spell){
-            const float radius=rd<float>(ram,spell+0x1C);
-            if(std::isfinite(radius)&&radius>=0&&radius<10000){
-                std::string effect="NO TARGET";
-                float distance=0;
-                if(living_enemy(ram,locked_enemy)){
-                    const auto enemy=0x8007C9BC+locked_enemy*0x128;
-                    distance=std::hypot(rd<float>(ram,enemy)-rd<float>(ram,Actor),rd<float>(ram,enemy+8)-rd<float>(ram,Actor+8));
-                    effect="EFFECTIVE";
-                    const auto model=rd<uint32_t>(ram,enemy+0x64);
-                    const auto element=rd<uint8_t>(ram,spell+6);
-                    if(model>=0x80000000&&model<=0x807FFF00&&element<4&&!(rd<uint16_t>(ram,spell+2)&0x8000)){
-                        const auto target_element=rd<uint16_t>(ram,model+0x26);
-                        if(target_element<4){
-                            const auto matchup=rd<uint32_t>(ram,0x8004C2A8+element*4)|rd<uint32_t>(ram,0x8004C2A8+target_element*4);
-                            if(matchup==1||matchup==2||matchup==4||matchup==8)effect="NOT VERY EFFECTIVE";
-                            else if(matchup==5||matchup==10)effect="SUPER EFFECTIVE";
-                        }
-                    }
-                }
-                if(rd<uint16_t>(ram,spell+0x18)==2)effect="SUPPORT SPELL";
-                hud.emit(0,0x51524947);
-                hud.rect(204,182,108,27,0x1085);
-                hud.text(207,184,"HIT RADIUS "+std::to_string(int(std::round(radius))),0xFFFF);
-                hud.text(207,192,"TARGET DIST "+std::to_string(int(std::round(distance))),0xFFFF);
-                hud.text(207,200,effect,0xFFC1);
-                hud.emit(0,0x51574F52);
-            }
-        }
-    }
     if(living_enemy(ram,locked_enemy)&&(rd<uint16_t>(ram,0x8008C592)&1)){
         const auto actor=0x8007C9BC+locked_enemy*0x128;
         const auto model=rd<uint32_t>(ram,actor+0x64);
@@ -740,3 +810,4 @@ extern "C" PROGRESS_EXPORT unsigned qs64_test_collision_count(){return unsigned(
 extern "C" PROGRESS_EXPORT unsigned qs64_test_wall_count(){unsigned n=0;for(const auto& t:collision){auto normal=cross(sub(t.b,t.a),sub(t.c,t.a));if(std::abs(normal[1])<0.001f&&(std::abs(normal[0])+std::abs(normal[2])>0.001f))n++;}return n;}
 extern "C" PROGRESS_EXPORT void qs64_test_arrow(uint8_t* ram,float dx,float dz){Hud hud{ram,rd<uint32_t>(ram,0x8007B2FC)};arrow_mesh(hud,ram,0,0,0,dx,dz);wr<uint32_t>(ram,0x8007B2FC,hud.p);}
 #endif
+

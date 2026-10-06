@@ -6,13 +6,13 @@
 
 A native Windows and Linux port of Quest 64 (USA), powered by [N64Recomp](https://github.com/N64Recomp/N64Recomp), [N64ModernRuntime](https://github.com/N64Recomp/N64ModernRuntime), and [RT64](https://github.com/rt64/rt64).
 
-Version **1.0.9** · [Releases](https://github.com/boricuapab/quest64tale-recompiled/releases) · [Mods](https://github.com/boricuapab/quest64tale-recompiled-mods)
+Version **1.1.1** · [Releases](https://github.com/boricuapab/quest64tale-recompiled/releases) · [Mods](https://github.com/boricuapab/quest64tale-recompiled-mods)
 
 This repository and its game release archives contain no ROM, extracted gameplay models/textures, save files or personal settings. Supply your own original USA ROM. The maintainer-selected launcher artwork is included; gameplay assets are loaded from your ROM. Open fonts are fetched during a source build and included in release packages.
 
 ## Getting started
 
-1. Download the Windows or Linux v1.0.9 ZIP and extract it.
+1. Download the Windows or Linux v1.1.1 ZIP and extract it.
 2. Run `Quest64Recompiled.exe` on Windows or `Quest64Recompiled` on Linux.
 3. Select your USA ROM in the launcher, then start the game.
 4. Configure graphics, input bindings and mods in Settings.
@@ -90,3 +90,7 @@ bodies. Spirit Tracker includes collected/total and remaining counts.
 labels. Hit radius describes the collision area rather than projectile reach.
 
 Version 1.0.9 adds built-in door-triggered video playback for **Solvaring Backstory FMV**. The optional movie pack is distributed in the separate mods release. See [v1.0.9 release notes](UPDATE-1.0.9.md).
+
+## v1.1.1
+
+Mods are read from `mods/` beside the executable. Controller Pak saves load from the profile folder first, fall back to the game folder, and mirror writes to both. Adds 2x/4x/8x Game Speed and damage percentage previews, with the latest rendering, camera and debug-arrival fixes. See [v1.1.1 release notes](UPDATE-1.1.1.md).

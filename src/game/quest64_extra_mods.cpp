@@ -11,6 +11,8 @@
 #include <vector>
 #ifndef QUEST64_MOD_TEST
 #include "librecomp/mods.hpp"
+#include "recomp_input.h"
+#include "zelda_config.h"
 #else
 #define EXTRA_EXPORT __declspec(dllexport)
 #endif
@@ -21,11 +23,17 @@
 namespace {
 constexpr uint32_t Player=0x8007BA80, Position=0x8007BACC;
 std::atomic<bool> autosave_on=false,encounters_on=false,bars_on=false,restore_requested=false;
+std::atomic<bool> speed_on=false;
+thread_local int speed_remaining=0;
+thread_local uint16_t speed_finish_buttons=0;
+thread_local bool speed_repeating=false;
+extern "C" int qs64_battle_paused();
 std::atomic<int> save_status=0;
 bool zone_pending=false,session_started=false;int stable_ticks=0;
 #ifdef QUEST64_MOD_TEST
 std::filesystem::path test_folder="tools/autosave-test";
 std::atomic<int> test_rate=4;
+std::atomic<int> test_speed=0;
 #endif
 std::mutex checkpoint_mutex;
 template<class T> T rd(uint8_t* ram,uint32_t a) {
@@ -56,7 +64,7 @@ std::filesystem::path folder() {
 #ifdef QUEST64_MOD_TEST
     return test_folder;
 #else
-    return recomp::mods::get_mods_directory().parent_path()/"autosaves";
+    return zelda64::get_app_folder_path()/"autosaves";
 #endif
 }
 uint32_t hash(const std::vector<uint8_t>& bytes) {
@@ -131,6 +139,24 @@ int rate_index() {
     return 4;
 #endif
 }
+int speed_index() {
+#ifdef QUEST64_MOD_TEST
+    return test_speed;
+#else
+    auto value=recomp::mods::get_mod_config_value("qs64_game_speed","speed");
+    if(auto index=std::get_if<uint32_t>(&value))return int(*index);
+    return 0;
+#endif
+}
+bool speed_allowed(uint8_t* ram) {
+    if(!speed_on||rd<uint16_t>(ram,0x8007B2E0)!=1||qs64_battle_paused())return false;
+    // Menus, dialogue, death and transitions retain their ordinary update rate.
+    if((rd<uint32_t>(ram,0x8007B2E4)&0x408B)||(rd<uint16_t>(ram,0x8007BB2C)&1))return false;
+#ifndef QUEST64_MOD_TEST
+    if(recomp::game_input_disabled())return false;
+#endif
+    return true;
+}
 struct Bar {int x,y;uint16_t hp,max_hp;};
 thread_local std::vector<Bar> bars;
 }
@@ -151,7 +177,29 @@ extern "C" EXTRA_EXPORT void qs64_extra_set(const char* id,bool enabled) {
     if(!std::strcmp(id,"qs64_autosave")){autosave_on=enabled;if(!enabled)restore_requested=false;}
     else if(!std::strcmp(id,"qs64_encounter_rate"))encounters_on=enabled;
     else if(!std::strcmp(id,"qs64_enemy_health"))bars_on=enabled;
+    else if(!std::strcmp(id,"qs64_game_speed"))speed_on=enabled;
 }
+extern "C" EXTRA_EXPORT void qs64_speed_begin(uint8_t* ram) {
+    constexpr int multipliers[]={2,4,8};
+    speed_repeating=false;
+    speed_remaining=speed_allowed(ram)?multipliers[std::clamp(speed_index(),0,2)]-1:0;
+}
+extern "C" EXTRA_EXPORT void qs64_speed_cancel(uint8_t* ram) {
+    if(speed_repeating)wr<uint16_t>(ram,0x80092876,speed_finish_buttons);
+    speed_remaining=0;speed_repeating=false;
+}
+extern "C" EXTRA_EXPORT int qs64_speed_repeat(uint8_t* ram) {
+    if(speed_remaining<=0||!speed_allowed(ram)){qs64_speed_cancel(ram);return 0;}
+    --speed_remaining;
+    if(!speed_repeating){speed_finish_buttons=rd<uint16_t>(ram,0x80092876);speed_repeating=true;}
+    // Poll once per rendered frame. Keep held movement but never repeat an
+    // A/L/D-pad press across the additional native simulation steps.
+    wr<uint16_t>(ram,0x80092876,0);
+    return 1;
+}
+#ifdef QUEST64_MOD_TEST
+extern "C" EXTRA_EXPORT void qs64_test_speed(int index){test_speed=index;}
+#endif
 extern "C" EXTRA_EXPORT float qs64_encounter_step(float movement) {
     if(!encounters_on)return movement;
     constexpr float rates[]={0.0f,0.10f,0.25f,0.50f,1.0f};
@@ -160,7 +208,7 @@ extern "C" EXTRA_EXPORT float qs64_encounter_step(float movement) {
 extern "C" EXTRA_EXPORT void qs64_zone_begin(uint8_t* ram) {
     if(session_started && (rd<uint32_t>(ram,0x8007B2E4)&0x40)){zone_pending=true;stable_ticks=0;}
 }
-extern "C" void qs64_extra_reset(){zone_pending=false;session_started=false;stable_ticks=0;restoring.reset();bars.clear();}
+extern "C" void qs64_extra_reset(){speed_remaining=0;speed_repeating=false;zone_pending=false;session_started=false;stable_ticks=0;restoring.reset();bars.clear();}
 extern "C" EXTRA_EXPORT void qs64_extra_tick(uint8_t* ram) {
     if(rd<uint16_t>(ram,0x8007B2E0)!=1)return;
     session_started=true;

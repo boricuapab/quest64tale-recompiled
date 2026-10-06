@@ -1,4 +1,4 @@
-# Building v1.0.7
+# Building v1.1.1
 
 Clone with recursive submodules:
 
@@ -19,3 +19,6 @@ Linux: install Clang 18, CMake, Ninja, make, SDL2/GTK3/X11 development files, zl
 The application is written to `build/game`. Put the prepared `assets` folder and controller mapping file beside the binary. Windows additionally needs the SDL2 and DirectX compiler DLLs. Release packages include open UI fonts and the approved launcher image, but never include ROMs, extracted gameplay media or saves.
 
 The build script remaps checkout paths in compiler diagnostics/embedded source names. Audit release binaries and archive contents before publication. Optional extraction scripts require NumPy and a locally built original animation-sampler library; their output must remain private.
+
+
+Quest 64 runtime adaptations are tracked in `runtime-overrides/` and copied into the pinned runtime submodule by CMake.
