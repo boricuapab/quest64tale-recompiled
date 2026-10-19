@@ -81,13 +81,6 @@ const Destination* destination(int map,int submap,int entrance) {
     for(const auto& d:destinations)if(d.map==map&&d.submap==submap&&d.entrance==entrance)return &d;
     return nullptr;
 }
-uint32_t arrival_flags(const Destination& d) {
-    // Entrance records describe the door's departure side. A direct debug
-    // arrival crosses that door in the opposite direction, just like travel
-    // from the connected room. Preserve the native door/stair walk-in type.
-    const unsigned type=(d.flags>>8)&7;
-    return (type==2||type==3)?(d.flags^1u):d.flags;
-}
 #ifndef QUEST64_MOD_TEST
 void set_mod(const recomp::mods::ModHandle& mod,bool enabled) {
     qs64_extra_set(mod.manifest.mod_id.c_str(),enabled);
@@ -187,10 +180,10 @@ extern "C" void qs64_mod_finish_warp(uint8_t* ram) {
     write<int32_t>(ram,0x80084EF8,-1);write<int32_t>(ram,0x80084F04,-1);
     write<int32_t>(ram,0x80085370,d.entrance);
     write<float>(ram,0x8007BA40,d.x);write<float>(ram,0x8007BA44,d.z);write<float>(ram,0x8007BA48,d.heading);
-    // Arrival flags belong to the selected entrance, not the door Brian left.
-    // The native initializer uses them to walk him into the room and snap him
-    // onto its collision floor (including stairs and special entrances).
-    write<uint32_t>(ram,0x8007BA4C,arrival_flags(d));
+    // Direct debug arrivals use the recorded destination position and native
+    // floor query. Door/stair animations can replace it with a door-pivot
+    // position behind the environment; they require an ordinary source door.
+    write<uint32_t>(ram,0x8007BA4C,0);
     write<uint32_t>(ram,0x8007BA50,d.door);
     arriving=d;
     write<uint16_t>(ram,Player+0x3E,0);
@@ -207,7 +200,11 @@ extern "C" void qs64_mod_prepare_spawn(uint8_t* ram) {
     const auto d=*arriving;arriving.reset();
     // Apply after destination loading and before native player initialization.
     write<float>(ram,0x8007BA40,d.x);write<float>(ram,0x8007BA44,d.z);write<float>(ram,0x8007BA48,d.heading);
-    write<uint32_t>(ram,0x8007BA4C,arrival_flags(d));write<uint32_t>(ram,0x8007BA50,d.door);
+    write<uint32_t>(ram,0x8007BA4C,0);write<uint32_t>(ram,0x8007BA50,d.door);
+    // A debug jump can originate while another door owns input. There is no
+    // destination door action to release that lock during a grounded spawn.
+    write<uint16_t>(ram,0x8007BB2C,read<uint16_t>(ram,0x8007BB2C)&~1u);
+    write<uint16_t>(ram,0x8007BABC,0);
 }
 #ifdef QUEST64_MOD_TEST
 extern "C" __declspec(dllexport) void qs64_test_enable(int stats,int spells,int debug){max_stats=stats!=0;all_spells=spells!=0;debug_menu=debug!=0;}

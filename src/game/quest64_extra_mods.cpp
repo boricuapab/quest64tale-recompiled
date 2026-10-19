@@ -24,6 +24,7 @@ namespace {
 constexpr uint32_t Player=0x8007BA80, Position=0x8007BACC;
 std::atomic<bool> autosave_on=false,encounters_on=false,bars_on=false,restore_requested=false;
 std::atomic<bool> speed_on=false;
+std::atomic<bool> accelerated_frame=false;
 thread_local int speed_remaining=0;
 thread_local uint16_t speed_finish_buttons=0;
 thread_local bool speed_repeating=false;
@@ -179,10 +180,12 @@ extern "C" EXTRA_EXPORT void qs64_extra_set(const char* id,bool enabled) {
     else if(!std::strcmp(id,"qs64_enemy_health"))bars_on=enabled;
     else if(!std::strcmp(id,"qs64_game_speed"))speed_on=enabled;
 }
+extern "C" EXTRA_EXPORT bool qs64_fast_gameplay(){return speed_on&&accelerated_frame;}
 extern "C" EXTRA_EXPORT void qs64_speed_begin(uint8_t* ram) {
-    constexpr int multipliers[]={2,4,8};
+    constexpr int multipliers[]={2,4,8,1};
     speed_repeating=false;
-    speed_remaining=speed_allowed(ram)?multipliers[std::clamp(speed_index(),0,2)]-1:0;
+    speed_remaining=speed_allowed(ram)?multipliers[std::clamp(speed_index(),0,3)]-1:0;
+    accelerated_frame=speed_remaining>0;
 }
 extern "C" EXTRA_EXPORT void qs64_speed_cancel(uint8_t* ram) {
     if(speed_repeating)wr<uint16_t>(ram,0x80092876,speed_finish_buttons);

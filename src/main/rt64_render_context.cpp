@@ -25,6 +25,7 @@ static RT64::UserConfiguration::Antialiasing device_max_msaa = RT64::UserConfigu
 static bool sample_positions_supported = false;
 static bool high_precision_fb_enabled = false;
 
+extern "C" bool qs64_fast_gameplay();
 static uint8_t DMEM[0x1000];
 static uint8_t IMEM[0x1000];
 
@@ -36,12 +37,14 @@ thread_local std::vector<size_t> brian_group_depths;
 thread_local std::vector<size_t> fade_group_depths;
 thread_local unsigned brian_part_count = 0, shadow_quad_count = 0;
 thread_local int quest64_hud_mode=0;
+thread_local bool quest64_accelerated_task=false;
 void quest64_noop(RT64::State* state,RT64::DisplayList** dl){
     if((*dl)->w1==0x51455854){state->extended.extendRDRAM=true;return;}
     const int previous_mode=quest64_hud_mode;
     if((*dl)->w1==0x51485544)quest64_hud_mode=1;
     else if((*dl)->w1==0x514C4546)quest64_hud_mode=2;
     else if((*dl)->w1==0x51524947)quest64_hud_mode=3;
+    else if((*dl)->w1==0x51505256)quest64_hud_mode=4;
     else if((*dl)->w1==0x51574F52)quest64_hud_mode=0;
     else return;
     // Geometry in the right-anchored compass needs the same expanded scissor
@@ -75,7 +78,7 @@ void quest64_rectangle(RT64::State* state,RT64::DisplayList** dl){
     }
     int origin=G_EX_ORIGIN_NONE;
     if(quest64_hud_mode==2)origin=G_EX_ORIGIN_LEFT;
-    else if(quest64_hud_mode==3)origin=G_EX_ORIGIN_RIGHT;
+    else if(quest64_hud_mode==3||quest64_hud_mode==4)origin=G_EX_ORIGIN_RIGHT;
     const auto saved=rdp->extended;
     const bool aligned=origin!=G_EX_ORIGIN_NONE;
     if(aligned){
@@ -84,6 +87,21 @@ void quest64_rectangle(RT64::State* state,RT64::DisplayList** dl){
         rect.rightOrigin=uint16_t(origin);
         rect.leftOffset=rect.leftOrigin==G_EX_ORIGIN_RIGHT?-320*4:0;
         rect.rightOffset=rect.rightOrigin==G_EX_ORIGIN_RIGHT?-320*4:0;
+        if(quest64_hud_mode==4){
+            // Edge origins snap both ends of tiny fill rectangles to the
+            // upscale grid. At fractional widescreen scales that collapses
+            // some one-pixel glyph columns. Keep the font in the unsnapped
+            // rectangle projection and translate the entire panel instead.
+            float aspect=4.f/3.f;
+            const auto graphics=ultramodern::renderer::get_graphics_config();
+            if(graphics.ar_option==ultramodern::renderer::AspectRatio::Manual)aspect=16.f/9.f;
+            else if(graphics.ar_option==ultramodern::renderer::AspectRatio::Expand){
+                int width=0,height=0;recompui::get_window_size(width,height);
+                if(height>0)aspect=std::max(aspect,float(width)/height);
+            }
+            rect.leftOrigin=rect.rightOrigin=G_EX_ORIGIN_NONE;
+            rect.leftOffset=rect.rightOffset=int(std::lround((aspect/(4.f/3.f)-1.f)*160.f*4.f));
+        }
         rdp->setRectAlign(rect);
         RT64::ExtendedAlignment scissor;
         scissor.leftOrigin=G_EX_ORIGIN_LEFT;scissor.rightOrigin=G_EX_ORIGIN_RIGHT;scissor.rightOffset=-320*4;
@@ -143,11 +161,12 @@ void quest64_model_list(RT64::State* state, RT64::DisplayList** dl) {
     }
     if (part >= 0) {
         ++brian_part_count;
+        const auto component=quest64_accelerated_task?G_EX_COMPONENT_SKIP:G_EX_COMPONENT_INTERPOLATE;
         // Component-wise matrix interpolation preserves the native shear and
         // signed scale without introducing quaternion decomposition choices.
         state->rsp->matrixId(0xB1000000U + part, true, false, false,
-            G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE,
-            G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE,
+            component, component,
+            component, component,
             G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP,
             G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP,
             G_EX_ORDER_LINEAR, G_EX_ASPECT_AUTO, G_EX_EDIT_NONE, false, false);
@@ -523,6 +542,20 @@ zelda64::renderer::RT64Context::~RT64Context() = default;
 void zelda64::renderer::RT64Context::send_dl(const OSTask* task) {
     check_texture_pack_actions();
     app->state->rsp->reset();
+    // Capture once for this graphics task. The game thread may already be
+    // advancing another frame while the renderer interprets this one.
+    quest64_accelerated_task=qs64_fast_gameplay();
+    if(quest64_accelerated_task){
+        // Keep parent/model and camera transforms at the same final native
+        // update as Brian's parts. Mixing an interpolated parent with an
+        // uninterpolated child creates a trailing or detached silhouette.
+        for(bool projection:{false,true})app->state->rsp->matrixId(
+            projection?0x51535052:0x51534D44,false,projection,false,
+            G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,
+            G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,
+            G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,
+            G_EX_ORDER_LINEAR,G_EX_ASPECT_AUTO,G_EX_EDIT_NONE,false,false);
+    }
     app->interpreter->loadUCodeGBI(task->t.ucode & 0x3FFFFFF, task->t.ucode_data & 0x3FFFFFF, true);
     brian_group_depths.clear();
     fade_group_depths.clear();

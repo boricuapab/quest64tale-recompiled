@@ -349,6 +349,7 @@ namespace recomp {
             void register_game(const std::string& mod_game_id);
             void register_embedded_mod(const std::string& mod_id, std::span<const uint8_t> mod_bytes);
             std::vector<ModOpenErrorDetails> scan_mod_folder(const std::filesystem::path& mod_folder);
+            std::vector<ModOpenErrorDetails> scan_mod_folders(const std::vector<std::filesystem::path>& mod_folders);
             void close_mods();
             void load_mods_config();
             void enable_mod(const std::string& mod_id, bool enabled, bool trigger_save);
@@ -622,6 +623,7 @@ namespace recomp {
         void close_mods();
         std::filesystem::path get_mods_directory();
         void set_mods_directory(std::filesystem::path path);
+        void set_primary_mods_directory(std::filesystem::path path);
         std::optional<ModDetails> get_details_for_mod(const std::string& mod_id);
         std::vector<ModDetails> get_all_mod_details(const std::string& mod_game_id);
         recomp::Version get_mod_version(size_t mod_index);

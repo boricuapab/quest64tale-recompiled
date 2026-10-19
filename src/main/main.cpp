@@ -59,7 +59,7 @@
 
 #include "../../lib/rt64/src/contrib/stb/stb_image.h"
 
-const std::string version_string = "1.1.1";
+const std::string version_string = "1.1.2";
 
 template<typename... Ts>
 void exit_error(const char* str, Ts ...args) {
@@ -638,6 +638,7 @@ int main(int argc, char** argv) {
 
     recomp::register_config_path(zelda64::get_app_folder_path());
     recomp::mods::set_mods_directory(zelda64::get_program_path()/"mods");
+    recomp::mods::set_primary_mods_directory(zelda64::get_profile_folder_path()/"mods");
     recomp::pak_storage::configure(zelda64::get_profile_folder_path(),zelda64::get_program_path());
 
     // Register supported games and patches

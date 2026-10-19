@@ -6,7 +6,7 @@ endif()
 
 project(Quest64Recompiled LANGUAGES C CXX)
 # Keep Quest 64 runtime adaptations in this repository, outside submodule Git links.
-foreach(runtime_file IN ITEMS include/librecomp/pak_storage.hpp include/librecomp/mods.hpp src/pak.cpp src/recomp.cpp)
+foreach(runtime_file IN ITEMS include/librecomp/pak_storage.hpp include/librecomp/mods.hpp src/pak.cpp src/recomp.cpp src/mods.cpp)
     if(EXISTS "${CMAKE_SOURCE_DIR}/runtime-overrides/librecomp/${runtime_file}")
         configure_file("${CMAKE_SOURCE_DIR}/runtime-overrides/librecomp/${runtime_file}"
                        "${CMAKE_SOURCE_DIR}/lib/N64ModernRuntime/librecomp/${runtime_file}" COPYONLY)

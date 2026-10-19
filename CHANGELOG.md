@@ -1,3 +1,13 @@
+## 1.1.2
+
+- Fix the crash when loading a save and entering gameplay.
+- Apply the confirmed Dondoran debug-arrival fix to all selectable destinations and eight bosses; regular door animations remain in use during ordinary travel.
+- Use a readable vertical attack-preview panel with bold text, effectiveness multipliers and spell/staff damage as a percentage of enemy HP.
+- Offer Default (1x), 2x, 4x and 8x in Game Speed and include the latest accelerated-rendering changes.
+- Load mods from the profile first, then the game folder. Controller Pak saves retain profile-first reads and mirrored writes.
+
+See [v1.1.2 release notes](UPDATE-1.1.2.md). Windows and Linux contain the same fixes; gameplay validation on each platform remains useful.
+
 ## 1.1.1
 
 - Scan mods beside the executable.

@@ -82,6 +82,7 @@ bool recomp::register_game(const recomp::GameEntry& entry) {
     return true;
 }
 
+static std::filesystem::path local_mods_path, primary_mods_path;
 void recomp::mods::initialize_mods() {
     N64Recomp::live_recompiler_init();
     std::filesystem::create_directories(get_mods_directory());
@@ -99,7 +100,13 @@ void recomp::mods::scan_mods() {
     std::vector<recomp::mods::ModOpenErrorDetails> mod_open_errors;
     {
         std::lock_guard mod_lock{ mod_context_mutex };
-        mod_open_errors = mod_context->scan_mod_folder(get_mods_directory());
+        std::vector<std::filesystem::path> folders{get_mods_directory()};
+        const auto fallback = config_path / mods_directory;
+        // The executable-local directory is the secondary source.
+        auto local = local_mods_path;
+        if(local.empty())local=fallback;
+        if(local!=folders.front())folders.push_back(local);
+        mod_open_errors = mod_context->scan_mod_folders(folders);
     }
     for (const auto& cur_error : mod_open_errors) {
         printf("Error opening mod " PATHFMT ": %s (%s)\n", cur_error.mod_path.c_str(), recomp::mods::error_to_string(cur_error.error).c_str(), cur_error.error_param.c_str());
@@ -115,9 +122,10 @@ void recomp::mods::close_mods() {
     }
 }
 
-static std::filesystem::path local_mods_path;
 void recomp::mods::set_mods_directory(std::filesystem::path path){local_mods_path=std::move(path);}
+void recomp::mods::set_primary_mods_directory(std::filesystem::path path){primary_mods_path=std::move(path);}
 std::filesystem::path recomp::mods::get_mods_directory() {
+    if(!primary_mods_path.empty())return primary_mods_path;
     return local_mods_path.empty()?config_path / mods_directory:local_mods_path;
 }
 

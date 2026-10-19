@@ -24,6 +24,16 @@ ignored = [
 
 # Play before the native boss encounter camera/dialogue setup.
 [[patches.hook]]
+func = "func_80014890"
+before_vram = 0x80014890
+text = "extern void qs64_spell_resolve_begin(uint8_t*, uint32_t); qs64_spell_resolve_begin(rdram, (uint32_t)ctx->r5);"
+
+[[patches.hook]]
+func = "func_80014890"
+before_vram = 0x800149C8
+text = "extern void qs64_spell_resolve_end(int); qs64_spell_resolve_end((int)ctx->r2);"
+
+[[patches.hook]]
 func = "func_8000BA4C"
 before_vram = 0x8000BA4C
 text = "extern void qs64_fmv_boss_event(uint8_t*, int, int); qs64_fmv_boss_event(rdram, 0, (int)ctx->r4);"
@@ -43,12 +53,12 @@ text = "extern void qs64_fmv_boss_event(uint8_t*, int, int); if ((uint32_t)ctx->
 [[patches.hook]]
 func = "func_80001800"
 before_vram = 0x80001B14
-text = "MEM_W(0, 0x8007B2F8) = 0; MEM_W(0, 0x80087200) = 0; extern int qs64_battle_pause_input(uint8_t*); int qs64_pause_action = qs64_battle_pause_input(rdram); if (qs64_pause_action == 3) goto L_80001FF4; if (qs64_pause_action == 2) func_8001CFE8(rdram, ctx); if (qs64_pause_action == 1) goto qs64_pause_render_frame; extern void qs64_speed_begin(uint8_t*); qs64_speed_begin(rdram); qs64_speed_simulation:;"
+text = "MEM_W(0, S32(0x8007B2F8)) = 0; MEM_W(0, S32(0x80087200)) = 0; extern int qs64_battle_pause_input(uint8_t*); int qs64_pause_action = qs64_battle_pause_input(rdram); if (qs64_pause_action == 3) goto L_80001FF4; if (qs64_pause_action == 2) func_8001CFE8(rdram, ctx); if (qs64_pause_action == 1) goto qs64_pause_render_frame; extern void qs64_speed_begin(uint8_t*); qs64_speed_begin(rdram); qs64_speed_simulation:;"
 
 [[patches.hook]]
 func = "func_80001800"
 before_vram = 0x80001BB0
-text = "extern int qs64_speed_repeat(uint8_t*); extern void qs64_speed_cancel(uint8_t*); if (qs64_speed_repeat(rdram)) { recomp_context qs64_saved_context = *ctx; int qs64_door_hit = 0; if (!(MEM_HU(0x74, 0x8007BAB8) & 1)) { ctx->f12.u32l = MEM_W(0x14, 0x8007BAB8); ctx->f14.u32l = MEM_W(0x1C, 0x8007BAB8); ctx->r6 = MEM_W(0x24, 0x8007BAB8); func_8000FDE0(rdram, ctx); qs64_door_hit = ctx->r2 != 0; } *ctx = qs64_saved_context; if (!qs64_door_hit) goto qs64_speed_simulation; qs64_speed_cancel(rdram); } qs64_pause_render_frame:;"
+text = "extern int qs64_speed_repeat(uint8_t*); extern void qs64_speed_cancel(uint8_t*); if (qs64_speed_repeat(rdram)) { recomp_context qs64_saved_context = *ctx; int qs64_door_hit = 0; if (!(MEM_HU(0x74, S32(0x8007BAB8)) & 1)) { ctx->f12.u32l = MEM_W(0x14, S32(0x8007BAB8)); ctx->f14.u32l = MEM_W(0x1C, S32(0x8007BAB8)); ctx->r6 = MEM_W(0x24, S32(0x8007BAB8)); func_8000FDE0(rdram, ctx); qs64_door_hit = ctx->r2 != 0; } *ctx = qs64_saved_context; if (!qs64_door_hit) goto qs64_speed_simulation; qs64_speed_cancel(rdram); } qs64_pause_render_frame:;"
 
 [[patches.hook]]
 func = "func_80001800"

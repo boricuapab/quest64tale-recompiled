@@ -27,6 +27,8 @@
 namespace {
 constexpr uint32_t Player=0x8007BA80, Actor=0x8007BACC;
 std::atomic<bool> experience_on=false,arrow_on=false,spirits_on=false,spell_preview_on=false;
+thread_local int displayed_spell=-1;
+thread_local bool resolving_player_spell=false;
 template<class T> T rd(uint8_t* ram,uint32_t a) {
     T v;uint32_t o=a&0x1fffffff;
     if constexpr(sizeof(T)==1)o^=3;
@@ -140,12 +142,12 @@ std::optional<Target> target(uint8_t* ram) {
 
 // Original 3x5 bitmap alphabet for a compact HUD. Render runs rather than
 // individual pixels to keep the guest display list bounded.
-constexpr const char* alphabet="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ%:- /";
+constexpr const char* alphabet="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ%:- /.";
 constexpr uint16_t glyphs[]={
     0x7B6F,0x2492,0x73E7,0x73CF,0x5BC9,0x79CF,0x79EF,0x7249,0x7BEF,0x7BCF,
     0x2BED,0x6BAE,0x7927,0x6B6E,0x79E7,0x79E4,0x796F,0x5BED,0x7497,0x124F,
     0x5BAD,0x4927,0x5FED,0x5F6D,0x7B6F,0x7BE4,0x7B7B,0x7BAD,0x79CF,0x7492,
-    0x5B6F,0x5B6A,0x5BFD,0x5AAD,0x5A92,0x73A7,0x52A5,0x0410,0x01C0,0,0x12A4};
+    0x5B6F,0x5B6A,0x5BFD,0x5AAD,0x5A92,0x73A7,0x52A5,0x0410,0x01C0,0,0x12A4,0x0002};
 struct Hud {
     uint8_t* ram;uint32_t p;int rectangles=0;
     float scale=1.0f;
@@ -161,13 +163,13 @@ struct Hud {
         emit(0xE7000000,0);emit(0xF7000000,uint32_t(color)*0x10001);
         emit(0xF6000000|uint32_t((x2-1)*4)<<12|uint32_t((y2-1)*4),uint32_t(x*4)<<12|uint32_t(y*4));
     }
-    void text(int x,int y,const std::string& value,uint16_t color=0xFFFF){
+    void text(int x,int y,const std::string& value,uint16_t color=0xFFFF,int pixel=1,bool bold=false){
         for(char c:value){const char* g=std::strchr(alphabet,c);uint16_t bits=g?glyphs[g-alphabet]:0;
             for(int row=0;row<5;row++)for(int col=0;col<3;){
                 if(!(bits&(1u<<(14-row*3-col)))){col++;continue;}
                 int start=col;while(col<3&&(bits&(1u<<(14-row*3-col))))col++;
-                rect(x+start,y+row,col-start,1,color);
-            }x+=4;
+                rect(x+start*pixel,y+row*pixel,(col-start)*pixel+(bold?1:0),pixel,color);
+            }x+=(bold?5:4)*pixel;
         }
     }
     void polygon(const std::array<std::array<float,2>,7>& points,uint16_t color){
@@ -367,8 +369,9 @@ std::string damage_preview(uint8_t* ram,uint32_t status,uint32_t enemy,unsigned 
     const unsigned low=bounds[0],high=bounds[1];
     unsigned hp=rd<uint16_t>(ram,enemy-0x18);
     if(!hp)return "DMG UNKNOWN";
-    auto pct=[&](unsigned value){return std::min(100u,(value*100+hp/2)/hp);};
-    return "DMG "+std::to_string(low)+"-"+std::to_string(high)+" / "+std::to_string(pct(low))+"-"+std::to_string(pct(high))+"% HP";
+    auto pct=[&](unsigned value){unsigned n=std::min(1000u,(value*1000+hp/2)/hp);
+        return std::to_string(n/10)+(n%10?"."+std::to_string(n%10):"");};
+    return "DMG "+std::to_string(low)+"-"+std::to_string(high)+" / "+pct(low)+"-"+pct(high)+"% HP";
 }
 // An extruded arrow mesh in world space. Perspective-project its 14 vertices
 // and depth-sort its shaded surfaces into the HUD overlay. This keeps a route
@@ -450,11 +453,19 @@ extern "C" PROGRESS_EXPORT void qs64_attack_experience(uint8_t* ram,uint32_t pla
     add_xp(ram,3,amount);
 }
 extern "C" PROGRESS_EXPORT void qs64_progression_reset(){orbit=false;restore_camera=false;camera_map=-1;camera_scene=-1;collision_scene=0;collision.clear();locked_enemy=-1;zoom_step=1;zoom_radius=0;zoom_requested=false;lock_reframe=false;movement_restore=false;
+    displayed_spell=-1;resolving_player_spell=false;
     overlay_buffers={};overlay_frame=0;
     battle_paused=false;pause_selection=0;pause_stick=0;
 #ifndef QUEST64_MOD_TEST
     recomp::set_battle_input_active(false);
 #endif
+}
+extern "C" PROGRESS_EXPORT void qs64_spell_resolve_begin(uint8_t* ram,uint32_t elements){
+    resolving_player_spell=elements==0x8007BAB8+0x119;
+}
+extern "C" PROGRESS_EXPORT void qs64_spell_resolve_end(int id){
+    if(resolving_player_spell&&id>=0&&id<=0x30E&&(id&255)<15)displayed_spell=id;
+    resolving_player_spell=false;
 }
 // Called immediately after native input polling, before any simulation updates.
 // 1 freezes simulation; 2 requests the game's normal retreat cleanup.
@@ -662,7 +673,8 @@ extern "C" PROGRESS_EXPORT void qs64_progression_draw(uint8_t* ram){
     hud.scale=panel_scale;
     hud.emit(0,0x514C4546);
     if(spell_preview_on&&!battle_paused&&(rd<uint16_t>(ram,0x8008C592)&1)){
-        const auto status=rd<uint32_t>(ram,Actor+0x68);
+        // Native spell menu receives the character structure, not its model pointer.
+        constexpr uint32_t status=0x8007BAB8;
         uint32_t spell=0;
         if(status>=0x80000000&&status<=0x807FFE00){
             const int count=rd<uint16_t>(ram,status+0x11C);
@@ -685,31 +697,50 @@ extern "C" PROGRESS_EXPORT void qs64_progression_draw(uint8_t* ram){
                 }
             }
         }
-        hud.emit(0,0x51524947);
-        hud.rect(184,174,128,46,0x1085);
-        hud.text(187,177,spell?"SPELL PREVIEW":"SELECT AN ELEMENT",0xFFFF);
+        // Capture the actual native menu result, including its zero-count
+        // first-spell fallback while choosing an element.
+        if(displayed_spell>=0){
+            const auto table=rd<uint32_t>(ram,0x800C1B14+(displayed_spell>>8)*4);
+            if(pointer(table,15*0x44))spell=table+(displayed_spell&255)*0x44;
+        }
+        // Use the HUD rectangle origin without the compass geometry viewport.
+        hud.emit(0,0x51505256);
+        const int preview_width=100;
+        const int panel_x=312-(preview_width+8),text_x=panel_x+3;
+        hud.rect(panel_x,76,preview_width+8,115,0x1085);
+        auto line=[&](int y,const std::string& value,uint16_t color=0xFFFF){hud.text(text_x,y,value,color,1,true);};
+        auto bar=[&](int y,float percent,uint16_t color){
+            hud.rect(text_x,y,preview_width,3,0xFFFF);
+            hud.rect(text_x+1,y+1,preview_width-2,1,0x1085);
+            hud.rect(text_x+1,y+1,int((preview_width-2)*std::clamp(percent/100.f,0.f,1.f)),1,color);
+        };
+        line(79,"ATTACK PREVIEW");
         const uint32_t enemy=living_enemy(ram,locked_enemy)?0x8007C9BC+locked_enemy*0x128:0;
+        const bool offensive=spell&&rd<uint16_t>(ram,spell+0x18)!=2;
+        const int effect=enemy&&offensive?elemental_percent(ram,spell,enemy):100;
+        line(90,!spell?"SELECT AN ELEMENT":!offensive?"SUPPORT SPELL":!enemy?"NO TARGET":effect==50?"NOT VERY EFFECTIVE":effect==125?"SUPER EFFECTIVE":"EFFECTIVE",0xFFC1);
+        line(99,enemy&&offensive?"EFFECT "+std::to_string(effect)+"%":"EFFECT --",0xFFC1);
+        bar(106,enemy&&offensive?effect:0,0xFFC1);
+        auto damage_row=[&](int y,const char* name,unsigned power,int multiplier,uint16_t color){
+            if(!enemy){line(y,std::string(name)+" --");bar(y+7,0,color);return;}
+            auto damage=damage_preview(ram,status,enemy,power,multiplier);
+            auto separator=damage.find(" / ");
+            line(y,std::string(name)+" "+(separator==std::string::npos?"UNKNOWN":damage.substr(separator+3)));
+            auto bounds=damage_bounds(ram,status,enemy,power,multiplier);
+            auto hp=rd<uint16_t>(ram,enemy-0x18);
+            bar(y+7,hp?100.f*bounds[0]/hp:0,color);
+        };
+        if(offensive)damage_row(116,"MAGIC",spell_power(ram,spell,status),effect,0x913F);
+        else{line(116,"MAGIC --");bar(123,0,0x913F);}
+        damage_row(133,"STAFF",staff_power(ram,status),100,0xFC01);
+        line(150,!enemy?"NO TARGET":rd<uint16_t>(ram,status+2)==locked_enemy+1?"STAFF IN RANGE":"STAFF OUT OF RANGE");
         if(spell){
             const float radius=rd<float>(ram,spell+0x1C);
-            if(std::isfinite(radius)&&radius>=0&&radius<10000){
-                std::string effect="NO TARGET";
-                float distance=0;
-                if(enemy){
-                    distance=std::hypot(rd<float>(ram,enemy)-rd<float>(ram,Actor),rd<float>(ram,enemy+8)-rd<float>(ram,Actor+8));
-                    const int percent=elemental_percent(ram,spell,enemy);
-                    effect=percent==50?"NOT VERY EFFECTIVE 50%":percent==125?"SUPER EFFECTIVE 125%":"EFFECTIVE 100%";
-                }
-                if(rd<uint16_t>(ram,spell+0x18)==2)effect="SUPPORT SPELL";
-                hud.text(187,184,effect,0xFFC1);
-                hud.text(187,191,"RANGE "+std::to_string(int(std::round(radius)))+" DIST "+std::to_string(int(std::round(distance))),0xFFFF);
-                if(enemy&&rd<uint16_t>(ram,spell+0x18)!=2)
-                    hud.text(187,198,damage_preview(ram,status,enemy,spell_power(ram,spell,status),elemental_percent(ram,spell,enemy)),0xFFFF);
-            }
+            if(std::isfinite(radius)&&radius>=0&&radius<10000)line(163,"RANGE "+std::to_string(int(std::round(radius))));
         }
-        if(enemy&&pointer(status,0x120)){
-            // The native target selector admits staff targets only in reach.
-            const bool staff_ready=rd<uint16_t>(ram,status+2)==locked_enemy+1;
-            hud.text(187,205,staff_ready?"STAFF "+damage_preview(ram,status,enemy,staff_power(ram,status),100).substr(4):"STAFF OUT OF REACH",0xFFFF);
+        if(enemy){
+            const float distance=std::hypot(rd<float>(ram,enemy)-rd<float>(ram,Actor),rd<float>(ram,enemy+8)-rd<float>(ram,Actor+8));
+            line(176,"DISTANCE "+std::to_string(int(std::round(distance))));
         }
         hud.emit(0,0x51574F52);
     }

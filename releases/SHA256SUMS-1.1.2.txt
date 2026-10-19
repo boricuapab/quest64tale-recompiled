@@ -1,0 +1,3 @@
+10f9c88e2e54c2b1e182e2a8aa0bc65f8ce1f1b82bd51042210acb64b6108c0d  quest64tale-recompiled-win_v1.1.2.zip
+57c7a9a3f3ae5c2455cb1ef9e6f23858374624721266f566445ad25c6875dd61  quest64tale-recompiled-linux_v1.1.2.zip
+68647141a245098c63aa3e71c7600b112b54f78d3f9d6dd6edf1a294482b0608  quest64tale-recompiled-mods_v1.1.2.zip
