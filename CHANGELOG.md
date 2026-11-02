@@ -1,3 +1,13 @@
+## 1.1.6
+
+- Adds Kid Mage and Mr. McCloud character replacements with all 30 animations, textures, vertex colors and animated staffs.
+- Smooths custom-character animation at 60 fps and higher, preserving native shadows and NPC/sprite textures.
+- Corrects Mr. McCloud's facing, UV details, blink timing, tail motion and staff grip.
+- Aligns door transitions with Brian's actual rendered root transform, including scripted movement and translation masking. Gameplay has been verified by the maintainer.
+- Includes the battle escape/quit cleanup and updated Solvaring FMVs and transitions from v1.1.3.
+
+Use the matching v1.1.6 game and the fifteen packs in the separate mods release. Enable one custom character at a time. See [release notes](UPDATE-1.1.6.md).
+
 ## 1.1.2
 
 - Fix the crash when loading a save and entering gameplay.

@@ -38,8 +38,33 @@ thread_local std::vector<size_t> fade_group_depths;
 thread_local unsigned brian_part_count = 0, shadow_quad_count = 0;
 thread_local int quest64_hud_mode=0;
 thread_local bool quest64_accelerated_task=false;
+thread_local RT64::RSP::TextureState kidmage_saved_texture;
+thread_local bool kidmage_render_state_saved=false;
 void quest64_noop(RT64::State* state,RT64::DisplayList** dl){
     if((*dl)->w1==0x51455854){state->extended.extendRDRAM=true;return;}
+    if((*dl)->w1==0x4B4D4247){
+        state->rsp->pushOtherMode();state->rsp->pushGeometryMode();state->rdp->pushCombine();
+        kidmage_saved_texture=state->rsp->textureState;kidmage_render_state_saved=true;
+        // A custom character is one deforming mesh, not rigid Brian parts.
+        // Stable ordering and an explicit vertex-interpolation group keep all
+        // body/staff vertices on the same display-time pose at higher framerates.
+        const auto component=quest64_accelerated_task?G_EX_COMPONENT_SKIP:G_EX_COMPONENT_INTERPOLATE;
+        // The actor root is uniformly scaled; quaternion rotation avoids the
+        // collapse a linear matrix blend can produce during a sharp turn.
+        state->rsp->matrixId(0x4B000000u|((*dl)->w0&0xffffu),true,false,true,
+            component,component,component,component,G_EX_COMPONENT_SKIP,
+            component,G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,G_EX_COMPONENT_SKIP,
+            G_EX_ORDER_LINEAR,G_EX_ASPECT_AUTO,G_EX_EDIT_NONE,false,false);
+        state->rsp->modelViewProjChanged=true;return;
+    }
+    if((*dl)->w1==0x4B4D454E){
+        if(kidmage_render_state_saved){
+            state->rsp->popOtherMode();state->rsp->popGeometryMode();state->rdp->popCombine();
+            const auto& t=kidmage_saved_texture;state->rsp->setTexture(t.tile,t.levels,t.on,t.sc,t.tc);kidmage_render_state_saved=false;
+            state->rsp->popMatrixId(1,false);state->rsp->modelViewProjChanged=true;
+        }
+        return;
+    }
     const int previous_mode=quest64_hud_mode;
     if((*dl)->w1==0x51485544)quest64_hud_mode=1;
     else if((*dl)->w1==0x514C4546)quest64_hud_mode=2;

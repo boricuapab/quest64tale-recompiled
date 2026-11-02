@@ -16,6 +16,12 @@ static int qs64_battle_pause_input(uint8_t* ram) {return action;}
 static void qs64_speed_begin(uint8_t* ram) {}
 static int qs64_speed_repeat(uint8_t* ram) {return repeat;}
 static void qs64_speed_cancel(uint8_t* ram) {cancel_count++;}
+static void func_80019CA4(uint8_t* r,recomp_context* c){}
+static void func_80008F6C(uint8_t* r,recomp_context* c){}
+static void func_800143C0(uint8_t* r,recomp_context* c){}
+static void func_8002684C(uint8_t* r,recomp_context* c){}
+static void func_800253F0(uint8_t* r,recomp_context* c){}
+static void qs64_battle_exit_finish(uint8_t* r,int action){}
 static void func_8001CFE8(uint8_t* ram,recomp_context* ctx) {}
 static void func_8000FDE0(uint8_t* ram,recomp_context* ctx) {
     assert(ctx->f12.u32l==0x11223344);

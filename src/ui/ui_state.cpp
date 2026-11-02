@@ -7,6 +7,7 @@
 #include <chrono>
 
 #include "rt64_render_hooks.h"
+#include "quest64_fmv.h"
 
 #include "concurrentqueue.h"
 
@@ -206,6 +207,7 @@ public:
         SDL_GetWindowSizeInPixels(window, &width, &height);
         
         context = Rml::CreateContext("main", Rml::Vector2i(width, height));
+        fmv_fade_document=context->LoadDocumentFromMemory("<rml><head><style>body { position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; background-color: black; pointer-events: none; z-index: 100000; }</style></head><body></body></rml>");
         launcher_menu_controller->make_bindings(context);
         config_menu_controller->make_bindings(context);
 
@@ -230,6 +232,8 @@ public:
             }
         }
     }
+
+    Rml::ElementDocument* fmv_fade_document=nullptr;
 
     void create_menus() {
         recompui::init_styling(zelda64::get_asset_path("recomp.rcss"));
@@ -750,7 +754,15 @@ void draw_hook(plume::RenderCommandList* command_list, plume::RenderFramebuffer*
     ui_state->update_primary_input(mouse_moved, non_mouse_interacted);
     ui_state->update_focus(mouse_moved, non_mouse_interacted);
 
-    if (recompui::is_any_context_shown()) {
+    const float fmv_fade=quest64::fmv_screen_fade();
+    if(ui_state->fmv_fade_document){
+        if(fmv_fade>0){
+            ui_state->fmv_fade_document->SetProperty("opacity",std::to_string(fmv_fade));
+            ui_state->fmv_fade_document->Show(Rml::ModalFlag::None,Rml::FocusFlag::None);
+            ui_state->fmv_fade_document->PullToFront();
+        }else ui_state->fmv_fade_document->Hide();
+    }
+    if (recompui::is_any_context_shown()||fmv_fade>0) {
         ui_state->update_contexts();
 
         int width = swap_chain_framebuffer->getWidth();

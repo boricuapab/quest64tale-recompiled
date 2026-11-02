@@ -6,25 +6,35 @@
 
 A native Windows and Linux port of Quest 64 (USA), powered by [N64Recomp](https://github.com/N64Recomp/N64Recomp), [N64ModernRuntime](https://github.com/N64Recomp/N64ModernRuntime), and [RT64](https://github.com/rt64/rt64).
 
-Version **1.1.2** · [Releases](https://github.com/boricuapab/quest64tale-recompiled/releases) · [Mods](https://github.com/boricuapab/quest64tale-recompiled-mods)
+Version **1.1.6** · [Releases](https://github.com/boricuapab/quest64tale-recompiled/releases) · [Mods](https://github.com/boricuapab/quest64tale-recompiled-mods)
 
 This repository and its game release archives contain no ROM, extracted gameplay models/textures, save files or personal settings. Supply your own original USA ROM. The maintainer-selected launcher artwork is included; gameplay assets are loaded from your ROM. Open fonts are fetched during a source build and included in release packages.
 
 ## Getting started
 
-1. Download the Windows or Linux v1.1.2 ZIP and extract it.
+1. Download the Windows or Linux v1.1.6 ZIP and extract it.
 2. Run `Quest64Recompiled.exe` on Windows or `Quest64Recompiled` on Linux.
 3. Select your USA ROM in the launcher, then start the game.
 4. Configure graphics, input bindings and mods in Settings.
 
 The supported big-endian USA ROM SHA-1 is `91b96e938c6d91699057fad91d726ee5a23ce33a`. The launcher accepts standard N64 ROM byte orders.
 
+## v1.1.6
+
+- Adds Kid Mage and Mr. McCloud character replacements with all 30 animations, textures, vertex colors and animated staffs.
+- Smooths custom-character animation at 60 fps and higher, preserving native shadows and NPC/sprite textures.
+- Corrects Mr. McCloud's facing, UV details, blink timing, tail motion and staff grip.
+- Aligns door transitions with Brian's actual rendered root transform, including scripted movement and translation masking. Gameplay has been verified by the maintainer.
+- Includes the battle escape/quit cleanup and updated Solvaring FMVs and transitions from v1.1.3.
+
+Use the matching v1.1.6 game and the fifteen packs in the separate mods release. Enable one custom character at a time. See [release notes](UPDATE-1.1.6.md).
+
 ## Features
 
 - Native ROM-selection launcher and Controller Pak save support.
 - Graphics resolution, anti-aliasing, aspect-ratio and rendering-rate settings.
 - Keyboard and controller bindings.
-- Thirteen optional packs on both platforms, including stat boosts, debugging, high-resolution Brian textures, autosaves, encounter rates, enemy health, experience bars, story/spirit guides, spell previews and Solvaring Backstory FMV.
+- Fifteen optional packs on both platforms, including stat boosts, debugging, high-resolution Brian textures, autosaves, encounter rates, enemy health, experience bars, story/spirit guides, spell previews and Solvaring Backstory FMV.
 - Debug map/submap/entrance travel and selection of eight boss encounters.
 - Supplied launcher artwork and executable-relative UI loading.
 

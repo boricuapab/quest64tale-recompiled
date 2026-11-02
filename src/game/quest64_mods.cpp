@@ -1,6 +1,7 @@
 #include "quest64_mods.h"
 #ifndef QUEST64_MOD_TEST
 #include "quest64_fmv.h"
+#include "quest64_character.h"
 #endif
 extern "C" void qs64_extra_set(const char*,bool);
 extern "C" void qs64_extra_tick(uint8_t*);
@@ -111,7 +112,8 @@ void quest64::register_gameplay_mods() {
         .on_reordered=nullptr
     };
     auto fmv_id=recomp::mods::register_mod_content_type(fmv_type);
-    recomp::mods::register_mod_container_type("qsmod",std::vector{id,fmv_id},true);
+    auto character_id=quest64::register_character_content();
+    recomp::mods::register_mod_container_type("qsmod",std::vector{id,fmv_id,character_id},true);
 #endif
 }
 bool quest64::request_warp(int map,int submap,int entrance) {

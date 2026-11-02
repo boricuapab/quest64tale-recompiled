@@ -9,6 +9,7 @@
 #include <cinttypes>
 #include "quest64_mods.h"
 #include "quest64_fmv.h"
+#include "quest64_character.h"
 #include "librecomp/pak_storage.hpp"
 
 #include "nfd.h"
@@ -59,7 +60,7 @@
 
 #include "../../lib/rt64/src/contrib/stb/stb_image.h"
 
-const std::string version_string = "1.1.2";
+const std::string version_string = "1.1.6";
 
 template<typename... Ts>
 void exit_error(const char* str, Ts ...args) {
@@ -221,7 +222,7 @@ void queue_samples(int16_t* audio_data, size_t sample_count) {
     // Convert the audio from 16-bit values to floats and swap the audio channels into the
     // swap buffer to correct for the address xor caused by endianness handling.
     float cur_main_volume = zelda64::get_main_volume() / 100.0f; // Get the current main volume, normalized to 0.0-1.0.
-    if(quest64::fmv_active())cur_main_volume=0;
+    cur_main_volume*=quest64::fmv_game_audio_gain();
     for (size_t i = 0; i < sample_count; i += input_channels) {
         swap_buffer[i + 0 + duplicated_input_frames * input_channels] = audio_data[i + 1] * (1.0f / 32768.0f) * cur_main_volume;
         swap_buffer[i + 1 + duplicated_input_frames * input_channels] = audio_data[i + 0] * (1.0f / 32768.0f) * cur_main_volume;
@@ -571,6 +572,7 @@ void reorder_texture_pack(recomp::mods::ModContext&) {
 #define REGISTER_FUNC(name) recomp::overlays::register_base_export(#name, name)
 
 int main(int argc, char** argv) {
+    if(argc==3&&std::string(argv[1])=="--validate-character")return quest64::validate_character_file(argv[2]);
     if(argc>=3&&std::string(argv[1])=="--fmv-preview")return quest64::fmv_preview(argv[2],argc>=4?std::strtod(argv[3],nullptr):0);
     (void)argc;
     (void)argv;

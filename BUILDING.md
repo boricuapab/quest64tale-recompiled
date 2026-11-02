@@ -1,4 +1,4 @@
-# Building v1.1.2
+# Building v1.1.6
 
 Clone with recursive submodules:
 

@@ -1,6 +1,22 @@
 #pragma once
 #include <cmath>
 namespace quest64 {
+// Native events: encounter setup, successful boss defeat, celebration completion.
+struct FmvBossTrigger {
+    int boss=0;
+    bool once=true,played=false,defeated=false;
+    void reset(){played=defeated=false;}
+    bool event(int kind,int native_boss,bool after_victory){
+        if(kind==1){if(native_boss==boss)defeated=true;return false;}
+        if(kind==0&&!after_victory&&native_boss==boss){
+            if(once&&played)return false;played=true;return true;
+        }
+        if(kind==2&&after_victory&&defeated){
+            defeated=false;if(once&&played)return false;played=true;return true;
+        }
+        return false;
+    }
+};
 struct FmvDoorRule {
     int from_map=13,from_scene=0,to_map=0,to_scene=1;
     float source_x=0,source_z=238,radius=48;

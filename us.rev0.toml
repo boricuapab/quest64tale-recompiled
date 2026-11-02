@@ -53,7 +53,7 @@ text = "extern void qs64_fmv_boss_event(uint8_t*, int, int); if ((uint32_t)ctx->
 [[patches.hook]]
 func = "func_80001800"
 before_vram = 0x80001B14
-text = "MEM_W(0, S32(0x8007B2F8)) = 0; MEM_W(0, S32(0x80087200)) = 0; extern int qs64_battle_pause_input(uint8_t*); int qs64_pause_action = qs64_battle_pause_input(rdram); if (qs64_pause_action == 3) goto L_80001FF4; if (qs64_pause_action == 2) func_8001CFE8(rdram, ctx); if (qs64_pause_action == 1) goto qs64_pause_render_frame; extern void qs64_speed_begin(uint8_t*); qs64_speed_begin(rdram); qs64_speed_simulation:;"
+text = "MEM_W(0, S32(0x8007B2F8)) = 0; MEM_W(0, S32(0x80087200)) = 0; extern int qs64_battle_pause_input(uint8_t*); int qs64_pause_action = qs64_battle_pause_input(rdram); if (qs64_pause_action == 2 || qs64_pause_action == 3) { recomp_context qs64_exit_context = *ctx; ctx->r4 = MEM_HU(0, S32(0x8008C55C)); if (ctx->r4 < 128) func_80019CA4(rdram, ctx); func_80008F6C(rdram, ctx); ctx->r4 = MEM_W(0, S32(0x80086ED8)); func_800143C0(rdram, ctx); if (qs64_pause_action == 2) { ctx->r4 = MEM_W(0, S32(0x80084EE4)); ctx->r5 = MEM_W(0, S32(0x80084EE8)); ctx->r6 = 0; func_8002684C(rdram, ctx); } else { MEM_H(0, S32(0x8008FCC2)) &= ~1; MEM_B(0, S32(0x8008FCC1)) = -1; ctx->r4 = 0; func_800253F0(rdram, ctx); } *ctx = qs64_exit_context; extern void qs64_battle_exit_finish(uint8_t*, int); qs64_battle_exit_finish(rdram, qs64_pause_action); } if (qs64_pause_action == 3) goto L_80001FF4; if (qs64_pause_action == 1) goto qs64_pause_render_frame; extern void qs64_speed_begin(uint8_t*); qs64_speed_begin(rdram); qs64_speed_simulation:;"
 
 [[patches.hook]]
 func = "func_80001800"
@@ -199,3 +199,13 @@ text = "extern void qs64_camera_begin(uint8_t*); qs64_camera_begin(rdram);"
 func = "func_80012BE0"
 before_vram = 0x80012BE0
 text = "extern void qs64_camera_end(uint8_t*); qs64_camera_end(rdram);"
+
+[[patches.hook]]
+func = "func_8001DB38"
+before_vram = 0x8001DB38
+text = "extern void qs64_custom_character_begin(uint8_t*, recomp_context*); qs64_custom_character_begin(rdram, ctx);"
+
+[[patches.hook]]
+func = "func_8001DB38"
+before_vram = 0x8001DC70
+text = "extern void qs64_custom_character_end(uint8_t*, recomp_context*); qs64_custom_character_end(rdram, ctx);"

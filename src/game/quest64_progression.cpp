@@ -489,17 +489,11 @@ extern "C" PROGRESS_EXPORT int qs64_battle_pause_input(uint8_t* ram){
             else if(pause_selection==1){
                 if(rd<uint16_t>(ram,0x8008C592)&0x100){wr<uint16_t>(ram,0x80092876,0);return 1;}
                 battle_paused=false;locked_enemy=-1;lock_reframe=false;
-                // Retreat without awarding enemy XP, drops, or boss progression.
-                auto flags=rd<uint16_t>(ram,0x8008C592);
-                wr<uint16_t>(ram,0x8008C592,uint16_t((flags&~0x112u)|0x404u));
-                wr<uint16_t>(ram,0x8008C594,0);
-                wr<uint16_t>(ram,Actor+0x60,uint16_t(rd<uint16_t>(ram,Actor+0x60)&~1u));
                 wr<uint16_t>(ram,0x80092876,0);return 2;
             }else{
                 battle_paused=false;locked_enemy=-1;lock_reframe=false;orbit=false;
-                wr<uint16_t>(ram,0x8008C592,0);
-                wr<uint32_t>(ram,0x8007B2E4,rd<uint32_t>(ram,0x8007B2E4)&~0x408Bu);
-                wr<uint16_t>(ram,0x8007B2E0,3);
+                // Keep native battle state intact until its resources and audio
+                // have been released by the gameplay-loop exit hook.
                 wr<uint16_t>(ram,0x80092876,0);return 3;
             }
         }
@@ -509,6 +503,29 @@ extern "C" PROGRESS_EXPORT int qs64_battle_pause_input(uint8_t* ram){
     wr<uint16_t>(ram,0x80092874,0);
     wr<int8_t>(ram,0x80092871,0);wr<int8_t>(ram,0x80092872,0);
     return battle_paused?1:0;
+}
+// Called after native enemy/effect/camera/audio teardown, before simulation resumes.
+extern "C" PROGRESS_EXPORT void qs64_battle_exit_finish(uint8_t* ram,int action){
+    if(action!=2&&action!=3)return;
+    wr<uint16_t>(ram,0x8008C592,rd<uint16_t>(ram,0x8008C592)&0x8000);
+    wr<uint16_t>(ram,0x8008C594,0);wr<uint16_t>(ram,0x8008C58C,0);
+    wr<uint16_t>(ram,0x8008C630,0);
+    wr<uint16_t>(ram,Actor+0x60,rd<uint16_t>(ram,Actor+0x60)&~1u);
+    wr<uint16_t>(ram,0x8007BAB8,0);wr<uint16_t>(ram,0x8007BABC,0);
+    wr<uint16_t>(ram,0x8007BAB8+0x11C,0);
+    wr<uint32_t>(ram,0x8007BA70,0xFF); // native pending victory item/drop
+    wr<uint16_t>(ram,0x80092876,0);wr<uint16_t>(ram,0x80092874,0);
+    locked_enemy=-1;lock_reframe=false;displayed_spell=-1;resolving_player_spell=false;
+    movement_restore=false;battle_paused=false;pause_stick=0;
+    if(action==3){
+        orbit=false;restore_camera=false;
+        wr<uint32_t>(ram,0x8007D1A0,0); // no active boss encounter in the title/load loop
+        wr<uint32_t>(ram,0x8007B2E4,rd<uint32_t>(ram,0x8007B2E4)&~0x408Bu);
+        wr<uint16_t>(ram,0x8007B2E0,3);
+    }
+#ifndef QUEST64_MOD_TEST
+    recomp::set_battle_input_active(false);
+#endif
 }
 extern "C" PROGRESS_EXPORT int qs64_battle_paused(){return battle_paused?1:0;}
 extern "C" PROGRESS_EXPORT void qs64_hud_mark(uint8_t* ram,int mode){
