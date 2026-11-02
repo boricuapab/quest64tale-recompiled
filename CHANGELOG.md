@@ -6,7 +6,7 @@
 - Aligns door transitions with Brian's actual rendered root transform, including scripted movement and translation masking. Gameplay has been verified by the maintainer.
 - Includes the battle escape/quit cleanup and updated Solvaring FMVs and transitions from v1.1.3.
 
-Use the matching v1.1.6 game and the fifteen packs in the separate mods release. Enable one custom character at a time. See [release notes](UPDATE-1.1.6.md).
+Use the matching v1.1.6 game and the fifteen packs in the separate mods release. Enable one custom character at a time. See [release notes](docs/UPDATE-1.1.6.md).
 
 ## 1.1.2
 
@@ -16,7 +16,7 @@ Use the matching v1.1.6 game and the fifteen packs in the separate mods release.
 - Offer Default (1x), 2x, 4x and 8x in Game Speed and include the latest accelerated-rendering changes.
 - Load mods from the profile first, then the game folder. Controller Pak saves retain profile-first reads and mirrored writes.
 
-See [v1.1.2 release notes](UPDATE-1.1.2.md). Windows and Linux contain the same fixes; gameplay validation on each platform remains useful.
+See [v1.1.2 release notes](docs/UPDATE-1.1.2.md). Windows and Linux contain the same fixes; gameplay validation on each platform remains useful.
 
 ## 1.1.1
 
